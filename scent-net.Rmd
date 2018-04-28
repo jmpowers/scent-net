@@ -1,0 +1,57 @@
+---
+title: "Plant-scent-pollinator network"
+author: '[John Powers](http://sites.uci.edu/powers/)'
+date: '`r Sys.Date()`'
+params:
+  cutoff: 20000
+output:
+  html_document:
+    toc: yes
+    toc_float: TRUE
+---
+<style type="text/css">
+.main-container { max-width: 1600px; margin-left: 0; margin-right: auto; }
+img{ max-width:200%; height: auto; }
+td, th { padding : 6px }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment="  ", cache=TRUE, fig.width=14, fig.asp=.678)
+library(heatmaply)
+library(bipartite)
+data(mosquin1967)
+library(RColorBrewer)
+pal <- brewer.pal(3,"Set2")
+
+#load network
+net <- read.delim("Kantsa_etal_Supp_Data1.csv", skip = 2)
+rownames(net) <- net[,1]
+net[,1] <- NULL
+net <- as.matrix(t(net))
+snet <- sortweb(net) #sort by row & column totals
+```
+
+# Visualize the p-p network
+##Heatmap
+```{r heatmap, fig.asp=1}
+heatmaply(net, scale="column")
+```
+
+##Matrix plot
+```{r matrixplot, fig.asp=.2}
+#interaction matrix plot
+visweb(net, type="nested", circles=T, boxes=F, circle.max=1.2)
+```
+
+##Web plot
+```{r webplot}
+#interaction web plot
+plotweb(net, text.rot=90, method="cca", col.high=pal[2], col.low=pal[1], col.interaction=pal[3])
+```
+
+#Network topography
+```{r topo}
+networklevel(net)
+```
+
+

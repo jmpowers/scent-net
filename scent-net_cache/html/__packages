@@ -1,0 +1,14 @@
+base
+ggplot2
+plotly
+viridisLite
+viridis
+heatmaply
+permute
+lattice
+vegan
+statnet.common
+network
+sna
+bipartite
+RColorBrewer
