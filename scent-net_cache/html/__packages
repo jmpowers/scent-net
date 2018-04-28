@@ -12,3 +12,9 @@ network
 sna
 bipartite
 RColorBrewer
+openxlsx
+data.table
+ape
+maps
+phytools
+taxize

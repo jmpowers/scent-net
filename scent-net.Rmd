@@ -2,8 +2,6 @@
 title: "Plant-scent-pollinator network"
 author: '[John Powers](http://sites.uci.edu/powers/)'
 date: '`r Sys.Date()`'
-params:
-  cutoff: 20000
 output:
   html_document:
     toc: yes
@@ -15,13 +13,22 @@ img{ max-width:200%; height: auto; }
 td, th { padding : 6px }
 </style>
 
-```{r setup, include=FALSE}
+#Load network and scent data
+From Tables S1 and S2 in:
+Kantsa, A., R.A. Raguso, A.G. Dyer, J.M. Olesen, T. Tscheulin, and T. Petanidou. 2018. Disentangling the role of floral sensory stimuli in pollination networks. Nature Communications 9: 1041. doi:[10.1038/s41467-018-03448-w](https://doi.org/10.1038/s41467-018-03448-w)
+
+```{r setup}
 knitr::opts_chunk$set(echo = TRUE, comment="  ", cache=TRUE, fig.width=14, fig.asp=.678)
+library(openxlsx)
+library(data.table)
+library(RColorBrewer)
+pal <- brewer.pal(5,"Set2")
 library(heatmaply)
 library(bipartite)
 data(mosquin1967)
-library(RColorBrewer)
-pal <- brewer.pal(3,"Set2")
+library(vegan)
+library(phytools)
+library(taxize)
 
 #load network
 net <- read.delim("Kantsa_etal_Supp_Data1.csv", skip = 2)
@@ -29,9 +36,36 @@ rownames(net) <- net[,1]
 net[,1] <- NULL
 net <- as.matrix(t(net))
 snet <- sortweb(net) #sort by row & column totals
+
+#load floral scents
+scent.file <- "Kantsa_2018_Supp_Data2.xlsx"
+plants <- getSheetNames(scent.file)
+scentlist <- lapply(2:length(plants), read.xlsx, xlsxFile=scent.file)
+plants <- plants[-1]
+scent <- rbindlist(scentlist, fill=T, idcol="plant")[,-4]
+colnames(scent)[2:3] <- c("cmpd","mean")
+scent$plant <- factor(plants[scent$plant])
+scent$cmpd <- factor(tolower(scent$cmpd))
+cmpds <- levels(scent$cmpd)
+
+scent.net <- dcast(scent, plant ~ cmpd, value.var="mean", fun.aggregate=mean, fill=0) #long to wide
+scent.net <- as.data.frame(scent.net)
+rownames(scent.net) <- scent.net[,1]
+scent.net[,c(1,380)] <- NULL #weird NA column has one entry
+scent.net <- as.matrix(scent.net)
 ```
 
-# Visualize the p-p network
+# Plant phylogeny
+```{r phylo}
+#plants.class <- classification(plants, db="gbif")
+#save(plants.class, file="plantsclass.Rdata")
+load("plantsclass.Rdata")
+plants.tree <- class2tree(plants.class)
+plot(plants.tree)
+```
+
+
+# Plant-pollinator network
 ##Heatmap
 ```{r heatmap, fig.asp=1}
 heatmaply(net, scale="column")
@@ -46,7 +80,7 @@ visweb(net, type="nested", circles=T, boxes=F, circle.max=1.2)
 ##Web plot
 ```{r webplot}
 #interaction web plot
-plotweb(net, text.rot=90, method="cca", col.high=pal[2], col.low=pal[1], col.interaction=pal[3])
+plotweb(net, text.rot=90, method="cca", col.high=pal[2], col.low=pal[1], col.interaction=pal[5])
 ```
 
 #Network topography
@@ -54,4 +88,52 @@ plotweb(net, text.rot=90, method="cca", col.high=pal[2], col.low=pal[1], col.int
 networklevel(net)
 ```
 
+# Scent network
+##Heatmap
+```{r heatmap.s, fig.asp=1}
+heatmaply(scent.net, scale="column")
+```
+
+##Web plot
+```{r webplot.s}
+#interaction web plot
+plotweb(scent.net, text.rot=90, method="cca", col.high=pal[2], col.low=pal[1], col.interaction=pal[5])
+```
+
+##NMDS
+```{r nmds}
+scent.mds <- metaMDS(sqrt(scent.net), autotransform = F)
+scent.op <- ordiplot(scent.mds, type="n")
+points(scent.op, what="species", pch=3, col=pal[3])
+text(scent.op, what="sites", cex=0.8)
+```
+
+##Phylochemospace
+```{r phylochemo}
+scent.mds.taxa <- scent.mds$points
+rownames(scent.mds.taxa) <- plants.tree$phylo$tip.label
+
+plants.tree$phylo$edge.length <- plants.tree$phylo$edge.length+0.00001
+
+phylomorphospace(plants.tree$phylo, scent.mds.taxa, control=list(col.node=0), label="none", lwd=1)
+text(scent.mds.taxa[,1], scent.mds.taxa[,2], rownames(scent.mds.taxa), cex=0.8, offset=0.5, xpd=T)
+```
+
+
+##Phylo Bar chart
+```{r barchart}
+par(mfrow=c(1,2))
+par(mar=c(0.8,0,0.8,0))
+plot(plants.tree, cex=1)
+par(mar=c(0,0,0,0))
+barplot(t(scent.net), col=sample(rainbow(ncol(scent.net))), names.arg=rep("",nrow(scent.net)), horiz=TRUE) 
+```
+
+```{r barchart2}
+par(mfrow=c(1,2))
+par(mar=c(0.8,0,0.8,0))
+plot(plants.tree, cex=1)
+par(mar=c(0,0,0,0))
+barplot(t(decostand(scent.net, method="tot")), col=sample(rainbow(ncol(scent.net))), names.arg=rep("",nrow(scent.net)), horiz=TRUE) 
+```
 
