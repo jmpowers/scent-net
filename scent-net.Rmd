@@ -17,7 +17,7 @@ td, th { padding : 6px }
 From Tables S1 and S2 in:
 Kantsa, A., R.A. Raguso, A.G. Dyer, J.M. Olesen, T. Tscheulin, and T. Petanidou. 2018. Disentangling the role of floral sensory stimuli in pollination networks. Nature Communications 9: 1041. doi:[10.1038/s41467-018-03448-w](https://doi.org/10.1038/s41467-018-03448-w)
 
-```{r setup}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, comment="  ", cache=TRUE, fig.width=14, fig.asp=.678)
 library(openxlsx)
 library(data.table)
@@ -29,7 +29,9 @@ data(mosquin1967)
 library(vegan)
 library(phytools)
 library(taxize)
+```
 
+```{r data}
 #load network
 net <- read.delim("Kantsa_etal_Supp_Data1.csv", skip = 2)
 rownames(net) <- net[,1]
@@ -54,6 +56,7 @@ rownames(scent.net) <- scent.net[,1]
 scent.net[,c(1,380)] <- NULL #weird NA column has one entry
 scent.net <- as.matrix(scent.net)
 ```
+
 
 # Plant phylogeny
 ```{r phylo}
