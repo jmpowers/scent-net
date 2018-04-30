@@ -1,4 +1,7 @@
 base
+openxlsx
+data.table
+RColorBrewer
 ggplot2
 plotly
 viridisLite
@@ -11,10 +14,10 @@ statnet.common
 network
 sna
 bipartite
-RColorBrewer
-openxlsx
-data.table
 ape
 maps
 phytools
 taxize
+brranching
+rotl
+vegan3d
