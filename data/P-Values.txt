@@ -1,0 +1,17 @@
+P-Values:
+     Total 
+Species 0.001***
+Year 0.001***
+Species and Year 0.001***
+      AC
+Differences per Year 0.436
+      AM
+Differences per Year 0.093
+      CR
+Differences per Year 0.024*
+      GB
+Differences per Year 0.001***
+      ES
+Differences per Year 0.013*
+      HV
+Differences per Year 0.022*
