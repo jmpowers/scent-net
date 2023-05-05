@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Janelle Bohey, John Powers, Lucas Sharrett, Amanda Barth" />
+
+<meta name="date" content="2023-05-05" />
+
+<title>Dry meadow volatiles</title>
+
+<script src="libs/header-attrs-2.20/header-attrs.js"></script>
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="libs/navigation-1.1/tabsets.js"></script>
+<script src="libs/navigation-1.1/codefolding.js"></script>
+<link href="libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div id="header">
+
+<div class="btn-group pull-right float-right">
+<button type="button" class="btn btn-default btn-xs btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu dropdown-menu-right" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Dry meadow volatiles</h1>
+<h4 class="author">Janelle Bohey, John Powers, Lucas Sharrett, Amanda
+Barth</h4>
+<h4 class="date">2023-05-05</h4>
+
+</div>
+
+
+<style type="text/css">
+.main-container { max-width: 1000px; margin-left: 0; margin-right: auto; }
+img{ max-width:200%; height: auto; }
+td, th { padding : 6px }
+</style>
+<pre class="r"><code>#DryMeadow = Barth2017 (32) + Barth2018 (92) + Paul&#39;s Meadow 2019 (130) =  254 samples
+#BigBoysDontCry: first 67 meadow samples in 2019, only through July 3
+# source(&quot;read_shimadzu.R&quot;)
+# vol.data &lt;- read.shimadzu(&quot;~/Downloads/paul/DryMeadowTotal.txt&quot;)
+# save(vol.data, file=&quot;data/drymeadow_data.rda&quot;)
+
+load(&quot;data/drymeadow_data.rda&quot;)
+vol.all &lt;- dcast(vol.data, Filename~Name, sum, value.var=&quot;Area&quot;)
+rownames(vol.all) &lt;- vol.all[,1]
+vol.all[,1] &lt;- NULL</code></pre>
+<div id="metadata" class="section level1">
+<h1>Metadata</h1>
+<pre class="r"><code>metadata &lt;- read_csv(&quot;data/BIGMETADATA2.csv&quot;) %&gt;% 
+  mutate(equil=pump-bag, pumping=end-pump, year=factor(year), 
+         sp = na_if(sp,&quot;Air&quot;), species=na_if(species,&quot;Ambient&quot;)) %&gt;% 
+  left_join(vol.data %&gt;% count(Filename, name=&quot;peaks&quot;)) %&gt;% 
+  left_join(enframe(rowSums(vol.all), name=&quot;Filename&quot;, value=&quot;unfiltered_area&quot;)) %&gt;% 
+  load_metadata(date=&quot;date&quot;, sample=&quot;Filename&quot;, group = &quot;sp&quot;, type=&quot;type&quot;, amount = &quot;biomass&quot;)
+spnames &lt;- distinct(metadata, sp, species) %&gt;% drop_na(species) %&gt;% deframe()
+
+count(metadata, type, year) %&gt;% kable(caption=&quot;samples of each type&quot;)</code></pre>
+<table>
+<caption>samples of each type</caption>
+<thead>
+<tr class="header">
+<th align="left">type</th>
+<th align="left">year</th>
+<th align="right">n</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">ambient</td>
+<td align="left">2017</td>
+<td align="right">9</td>
+</tr>
+<tr class="even">
+<td align="left">ambient</td>
+<td align="left">2018</td>
+<td align="right">23</td>
+</tr>
+<tr class="odd">
+<td align="left">ambient</td>
+<td align="left">2019</td>
+<td align="right">26</td>
+</tr>
+<tr class="even">
+<td align="left">blank</td>
+<td align="left">2018</td>
+<td align="right">11</td>
+</tr>
+<tr class="odd">
+<td align="left">blank</td>
+<td align="left">2019</td>
+<td align="right">18</td>
+</tr>
+<tr class="even">
+<td align="left">floral</td>
+<td align="left">2017</td>
+<td align="right">23</td>
+</tr>
+<tr class="odd">
+<td align="left">floral</td>
+<td align="left">2018</td>
+<td align="right">58</td>
+</tr>
+<tr class="even">
+<td align="left">floral</td>
+<td align="left">2019</td>
+<td align="right">86</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>ggplot(count(drop_na(metadata, sp), sp,year), aes(x=year, y=sp, fill=n, label=n)) + 
+  geom_tile() + geom_text() + scale_fill_viridis_c() #NA = GC blank or ambient</code></pre>
+<p><img src="plots/metadata-1.svg" width="960" /></p>
+<pre class="r"><code>count(drop_na(metadata,sp), sp, year) %&gt;% count(year) %&gt;% kable(caption=&quot;species in each year&quot;)</code></pre>
+<table>
+<caption>species in each year</caption>
+<thead>
+<tr class="header">
+<th align="left">year</th>
+<th align="right">n</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">2017</td>
+<td align="right">6</td>
+</tr>
+<tr class="even">
+<td align="left">2018</td>
+<td align="right">18</td>
+</tr>
+<tr class="odd">
+<td align="left">2019</td>
+<td align="right">28</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>sp.years &lt;- count(drop_na(metadata,sp), sp, year) %&gt;% count(sp) %&gt;% arrange(n)
+kable(sp.years, caption=&quot;years of sampling for each species&quot;)</code></pre>
+<table>
+<caption>years of sampling for each species</caption>
+<thead>
+<tr class="header">
+<th align="left">sp</th>
+<th align="right">n</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">AmAl</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">AqCa</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">DeBa</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">FrSp</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">FrVi</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">HyCa</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">LaLe</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">LaLl</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">LoDi</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">MaRe</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">MeFu</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">ViPr</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">BoSt</td>
+<td align="right">2</td>
+</tr>
+<tr class="even">
+<td align="left">CaSu</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td align="left">ClLa</td>
+<td align="right">2</td>
+</tr>
+<tr class="even">
+<td align="left">DrAu</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td align="left">ErGr</td>
+<td align="right">2</td>
+</tr>
+<tr class="even">
+<td align="left">ErUm</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td align="left">MeCi</td>
+<td align="right">2</td>
+</tr>
+<tr class="even">
+<td align="left">PoHi</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td align="left">SeIn</td>
+<td align="right">2</td>
+</tr>
+<tr class="even">
+<td align="left">SeLa</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td align="left">ViAm</td>
+<td align="right">2</td>
+</tr>
+<tr class="even">
+<td align="left">AcMi</td>
+<td align="right">3</td>
+</tr>
+<tr class="odd">
+<td align="left">ArCo</td>
+<td align="right">3</td>
+</tr>
+<tr class="even">
+<td align="left">CaRo</td>
+<td align="right">3</td>
+</tr>
+<tr class="odd">
+<td align="left">ErSu</td>
+<td align="right">3</td>
+</tr>
+<tr class="even">
+<td align="left">GaBo</td>
+<td align="right">3</td>
+</tr>
+<tr class="odd">
+<td align="left">HeVi</td>
+<td align="right">3</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>ggplot(drop_na(metadata, flrs), aes(x=flrs, y=fct_reorder(species, flrs))) + geom_boxplot()</code></pre>
+<p><img src="plots/metadata-2.svg" width="960" /></p>
+<pre class="r"><code>ggplot(drop_na(metadata, amount), aes(x=amount, y=fct_reorder(species, amount))) + geom_boxplot() + labs(x=&quot;biomass (g)&quot;)</code></pre>
+<p><img src="plots/metadata-3.svg" width="960" /></p>
+<pre class="r"><code>ggplot(metadata, aes(x=amount, y=flrs, color=sp)) + geom_path(aes(group=sp)) + geom_text(aes(label=sp)) + 
+  labs(x=&quot;biomass (g)&quot;) + scale_x_sqrt() + scale_y_sqrt() + guides(color=F)</code></pre>
+<p><img src="plots/metadata-4.svg" width="960" /></p>
+<pre class="r"><code>summarize(metadata, .by=sp, across(c(amount,flrs), ~mean(.x, na.rm=T))) %&gt;% 
+  ggplot(aes(x=amount, y=flrs, color=sp)) + geom_text(aes(label=sp)) + labs(x=&quot;biomass (g)&quot;, title=&quot;Averaged by species&quot;) + 
+  scale_x_sqrt() + scale_y_sqrt() + guides(color=F)</code></pre>
+<p><img src="plots/metadata-5.svg" width="960" /></p>
+<pre class="r"><code>ggplot(metadata, aes(x=peaks, y=unfiltered_area, color=year, shape=type, linetype=type)) + geom_point() + geom_smooth(se=F)</code></pre>
+<p><img src="plots/metadata-6.svg" width="960" /></p>
+</div>
+<div id="filtering" class="section level1">
+<h1>Filtering</h1>
+<pre class="r"><code>longdata &lt;- load_longdata(vol.data, sample = &quot;Filename&quot;, RT = &quot;Ret.Time&quot;, 
+                          name = &quot;Name&quot;, area = &quot;Area&quot;, match = &quot;SI&quot;, maxmatch=100)
+sampletable &lt;- make_sampletable(longdata, metadata)
+
+chemtable &lt;- make_chemtable(longdata, metadata) %&gt;% 
+  filter_RT(2, 20) %&gt;% 
+  filter_match(0.8) %&gt;% 
+  filter_freq(0.2, group = TRUE) %&gt;% 
+  filter_contaminant(cont.list = &quot;Caprolactam&quot;) %&gt;% 
+  filter_area(min_maximum = 4e5) %&gt;%
+  filter_ambient_ratio(sampletable, metadata, ratio = 3) %&gt;% 
+  filter_ambient_ttest(sampletable, metadata, 
+                       alpha = 0.05, adjust = &quot;fdr&quot;) 
+
+chemtable$filter_final &lt;- with(chemtable, filter_RT == &quot;OK&quot; &amp; filter_match ==&quot;OK&quot; &amp; 
+                                 filter_freq.floral == &quot;OK&quot; &amp; filter_area == &quot;OK&quot; &amp; 
+                                 filter_ambient_ratio == &quot;OK&quot;  &amp;  filter_contaminant == &quot;OK&quot;)
+
+plot_filters(chemtable, option=&quot;rarity&quot;)</code></pre>
+<p><img src="plots/filtering-1.svg" width="960" /></p>
+<pre class="r"><code>plot_filters(chemtable, option=&quot;ambient&quot;)</code></pre>
+<p><img src="plots/filtering-2.svg" width="960" /></p>
+<pre class="r"><code>plot_filters(chemtable, option=&quot;volcano&quot;)</code></pre>
+<p><img src="plots/filtering-3.svg" width="960" /></p>
+<pre class="r"><code>plot_filters(chemtable, option=&quot;prop&quot;)</code></pre>
+<p><img src="plots/filtering-4.svg" width="960" /></p>
+<pre class="r"><code>vol &lt;- prune_sampletable(sampletable, chemtable, metadata)
+files_exclude &lt;- c(&quot;&quot;) #TODO any to exclude?
+vol &lt;- vol[!(rownames(vol) %in% files_exclude) ,]
+meta &lt;- metadata[metadata$type == &quot;floral&quot; &amp; !(metadata$sample %in% files_exclude),] %&gt;% droplevels()
+#TODO need pumping times and biomass for 2017+2018 to standardize
+#vol &lt;- vol / as.numeric(meta$equil + meta$pumping)/3600 / meta$amount</code></pre>
+</div>
+<div id="heatmap" class="section level1">
+<h1>Heatmap</h1>
+<pre class="r"><code>library(pheatmap)
+library(dendsort)
+library(viridis)
+ph  &lt;- pheatmap(as.matrix(t(vol))^(1/4), 
+         cluster_cols=T, show_colnames=F,
+         clustering_method=&quot;mcquitty&quot;, clustering_distance_rows=&quot;correlation&quot;,
+         clustering_distance_cols=vegdist(vol, method = &quot;bray&quot;),
+         clustering_callback = function(hc, ...){dendsort(hc, type=&quot;average&quot;)},
+         scale=&quot;none&quot;, color=magma(512),
+         annotation_col = data.frame(meta %&gt;% select(sp, year, VWC, amount, flrs), row.names=rownames(vol)), 
+   fontsize = 10, border_color = NA, legend=F, annotation_legend=T, cutree_rows=6
+)</code></pre>
+<p><img src="plots/heatmap-1.png" width="960" /></p>
+</div>
+<div id="year-comparison" class="section level1">
+<h1>Year comparison</h1>
+<pre class="r"><code>(nmds_vol &lt;- vegan::metaMDS(sqrt(vol), autotransform = F))</code></pre>
+<pre><code>Run 0 stress 0.2628852 
+Run 1 stress 0.3018345 
+Run 2 stress 0.2658156 
+Run 3 stress 0.2636091 
+Run 4 stress 0.2628363 
+... New best solution
+... Procrustes: rmse 0.02023206  max resid 0.199095 
+Run 5 stress 0.265461 
+Run 6 stress 0.2897378 
+Run 7 stress 0.2622563 
+... New best solution
+... Procrustes: rmse 0.02188224  max resid 0.1560676 
+Run 8 stress 0.2634113 
+Run 9 stress 0.2657618 
+Run 10 stress 0.2627475 
+... Procrustes: rmse 0.01617344  max resid 0.1524909 
+Run 11 stress 0.2625001 
+... Procrustes: rmse 0.0273479  max resid 0.2009282 
+Run 12 stress 0.2664267 
+Run 13 stress 0.2721722 
+Run 14 stress 0.2690852 
+Run 15 stress 0.2654847 
+Run 16 stress 0.2774393 
+Run 17 stress 0.2639821 
+Run 18 stress 0.2926334 
+Run 19 stress 0.2622974 
+... Procrustes: rmse 0.01617988  max resid 0.1099535 
+Run 20 stress 0.2634645 
+*** Best solution was not repeated -- monoMDS stopping criteria:
+     2: no. of iterations &gt;= maxit
+    18: stress ratio &gt; sratmax</code></pre>
+<pre><code>
+Call:
+vegan::metaMDS(comm = sqrt(vol), autotransform = F) 
+
+global Multidimensional Scaling using monoMDS
+
+Data:     sqrt(vol) 
+Distance: bray 
+
+Dimensions: 2 
+Stress:     0.2622563 
+Stress type 1, weak ties
+Best solution was not repeated after 20 tries
+The best solution was from try 7 (random start)
+Scaling: centring, PC rotation, halfchange scaling 
+Species: expanded scores based on &#39;sqrt(vol)&#39; </code></pre>
+<pre class="r"><code>plot(nmds_vol, type=&quot;n&quot;)
+points(nmds_vol, display=&quot;sites&quot;, col=as.integer(meta$year), pch=19)
+legend(&quot;topleft&quot;, legend=levels(meta$year), fill=1:3)
+text(nmds_vol, display=&quot;species&quot;, cex=0.5, col=4)</code></pre>
+<p><img src="plots/nmds-1.svg" width="960" /></p>
+<pre class="r"><code>plot(nmds_vol, type=&quot;n&quot;)
+points(nmds_vol, display=&quot;sites&quot;, col=as.integer(meta$year), pch=19)
+ordispider(nmds_vol, meta$sp, display=&quot;sites&quot;, col=if_else(sp.years$n[match(levels(meta$sp), sp.years$sp)]&gt;1,&quot;blue&quot;,NA))</code></pre>
+<p><img src="plots/nmds-2.svg" width="960" /></p>
+<pre class="r"><code>(cap_yr &lt;- vegan::capscale(sqrt(vol) ~ year, data=meta))</code></pre>
+<pre><code>Call: vegan::capscale(formula = sqrt(vol) ~ year, data = meta)
+
+                Inertia Proportion Rank
+Total         9.325e+06  1.000e+00     
+Constrained   3.927e+05  4.212e-02    2
+Unconstrained 8.932e+06  9.579e-01   29
+Inertia is mean squared Euclidean distance 
+Species scores projected from &#39;sqrt&#39; &#39;vol&#39; 
+
+Eigenvalues for constrained axes:
+  CAP1   CAP2 
+357325  35383 
+
+Eigenvalues for unconstrained axes:
+   MDS1    MDS2    MDS3    MDS4    MDS5    MDS6    MDS7    MDS8 
+2941365 1483111  784276  622058  487598  385156  332201  308832 
+(Showing 8 of 29 unconstrained eigenvalues)</code></pre>
+<pre class="r"><code>anova.cca(cap_yr, by=&quot;margin&quot;)</code></pre>
+<pre><code>Permutation test for capscale under reduced model
+Marginal effects of terms
+Permutation: free
+Number of permutations: 999
+
+Model: vegan::capscale(formula = sqrt(vol) ~ year, data = meta)
+          Df Variance      F Pr(&gt;F)   
+year       2   392708 3.6053  0.002 **
+Residual 164  8931840                 
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="r"><code>plot(cap_yr, type=&quot;n&quot;)
+points(cap_yr, display=&quot;sites&quot;, col=as.integer(meta$year), pch=19)
+legend(&quot;topleft&quot;, legend=levels(meta$year), fill=1:3)
+text(cap_yr, display=&quot;species&quot;, cex=0.5, col=4)</code></pre>
+<p><img src="plots/cap-1.svg" width="960" /></p>
+<pre class="r"><code>kable(arrange(as.data.frame(cap_yr$CCA$v), CAP1)) </code></pre>
+<table>
+<colgroup>
+<col width="71%" />
+<col width="14%" />
+<col width="14%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="right">CAP1</th>
+<th align="right">CAP2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">2-Propyl-1-pentanol</td>
+<td align="right">-0.6718243</td>
+<td align="right">0.0711501</td>
+</tr>
+<tr class="even">
+<td align="left">2,4-Di-tert-butylphenol</td>
+<td align="right">-0.4028322</td>
+<td align="right">-0.0378355</td>
+</tr>
+<tr class="odd">
+<td align="left">.beta.-Ocimene</td>
+<td align="right">-0.1906376</td>
+<td align="right">0.1452155</td>
+</tr>
+<tr class="even">
+<td align="left">Butanenitrile, 3-methyl-</td>
+<td align="right">-0.1800747</td>
+<td align="right">0.0718735</td>
+</tr>
+<tr class="odd">
+<td align="left">3-Carene</td>
+<td align="right">-0.1467251</td>
+<td align="right">0.1944274</td>
+</tr>
+<tr class="even">
+<td align="left">Acetoin</td>
+<td align="right">-0.1047170</td>
+<td align="right">-0.0536713</td>
+</tr>
+<tr class="odd">
+<td align="left">1-Butanol, 3-methyl-</td>
+<td align="right">-0.0854804</td>
+<td align="right">0.0163712</td>
+</tr>
+<tr class="even">
+<td align="left">Butanenitrile, 2-methyl-</td>
+<td align="right">-0.0836863</td>
+<td align="right">0.0140212</td>
+</tr>
+<tr class="odd">
+<td align="left">Acetic acid, hexyl ester</td>
+<td align="right">-0.0442386</td>
+<td align="right">-0.0335827</td>
+</tr>
+<tr class="even">
+<td align="left">1-Penten-3-ol</td>
+<td align="right">-0.0413414</td>
+<td align="right">-0.0295570</td>
+</tr>
+<tr class="odd">
+<td align="left">Cyclopentanone, 2-ethyl-</td>
+<td align="right">-0.0412201</td>
+<td align="right">-0.2765852</td>
+</tr>
+<tr class="even">
+<td align="left">Linalool</td>
+<td align="right">-0.0294344</td>
+<td align="right">0.2740372</td>
+</tr>
+<tr class="odd">
+<td align="left">[1,1’-Bicyclopentyl]-2-one</td>
+<td align="right">-0.0241742</td>
+<td align="right">-0.3286403</td>
+</tr>
+<tr class="even">
+<td align="left">Bicyclo[3.1.0]hex-2-ene,
+2-methyl-5-(1-methylethyl)-</td>
+<td align="right">-0.0219068</td>
+<td align="right">0.0808483</td>
+</tr>
+<tr class="odd">
+<td align="left">(1R)-2,6,6-Trimethylbicyclo[3.1.1]hept-2-ene</td>
+<td align="right">0.0327420</td>
+<td align="right">0.1227223</td>
+</tr>
+<tr class="even">
+<td align="left">Furan, 2-methyl-</td>
+<td align="right">0.0370380</td>
+<td align="right">0.0778577</td>
+</tr>
+<tr class="odd">
+<td align="left">2-Hexenal, (E)-</td>
+<td align="right">0.0488769</td>
+<td align="right">0.0827489</td>
+</tr>
+<tr class="even">
+<td align="left">1-Pentanol</td>
+<td align="right">0.0574759</td>
+<td align="right">-0.0008738</td>
+</tr>
+<tr class="odd">
+<td align="left">(E)-4,8-Dimethylnona-1,3,7-triene</td>
+<td align="right">0.0610242</td>
+<td align="right">-0.2605557</td>
+</tr>
+<tr class="even">
+<td align="left">Eucalyptol</td>
+<td align="right">0.0856737</td>
+<td align="right">-0.0682472</td>
+</tr>
+<tr class="odd">
+<td align="left">2-Butenal, 3-methyl-</td>
+<td align="right">0.0985018</td>
+<td align="right">-0.4266678</td>
+</tr>
+<tr class="even">
+<td align="left">(E)-4-Oxohex-2-enal</td>
+<td align="right">0.1019846</td>
+<td align="right">0.0961664</td>
+</tr>
+<tr class="odd">
+<td align="left">Bicyclo[2.2.1]heptane, 2,2-dimethyl-3-methylene-,
+(1S)-</td>
+<td align="right">0.1079177</td>
+<td align="right">0.1213977</td>
+</tr>
+<tr class="even">
+<td align="left">Caryophyllene</td>
+<td align="right">0.1272853</td>
+<td align="right">0.0217273</td>
+</tr>
+<tr class="odd">
+<td align="left">D-Limonene</td>
+<td align="right">0.1440285</td>
+<td align="right">0.4809789</td>
+</tr>
+<tr class="even">
+<td align="left">.beta.-Myrcene</td>
+<td align="right">0.1491915</td>
+<td align="right">-0.2073924</td>
+</tr>
+<tr class="odd">
+<td align="left">2-Propenoic acid, octyl ester</td>
+<td align="right">0.2173943</td>
+<td align="right">0.0267111</td>
+</tr>
+<tr class="even">
+<td align="left">Bicyclo[3.1.0]hexane,
+4-methylene-1-(1-methylethyl)-</td>
+<td align="right">0.2220202</td>
+<td align="right">0.0180272</td>
+</tr>
+<tr class="odd">
+<td align="left">3-Hexen-1-ol, acetate, (E)-</td>
+<td align="right">0.2383308</td>
+<td align="right">0.2748748</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

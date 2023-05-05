@@ -1,0 +1,255 @@
+Filename,vial,samplename,date,sp,species,pump_id,VWC,height_cm,biomass,flrs,buds,notes,type,bag,pump,end,year
+AA_38_190702_Paul_792019_19.qgd,38,,2019-07-02,AmAl,Amelanchier alnifolia,DRC3,2.2,34,0.08895,4,0,,floral,10:04,10:53,11:13,2019
+AA_39_190702_Paul_792019_20.qgd,39,,2019-07-02,AmAl,Amelanchier alnifolia,JMP3,1.7,31,0.04959,5,0,,floral,10:06,10:53,11:13,2019
+AC_60_1907015_Paul_7162019_05.qgd,60,,2019-07-15,ArCo,Arenaria congesta,JMP1,0,23,0.08906,9,16,,floral,9:56,10:39,10:59,2019
+AC_61_1907015_Paul_7162019_06.qgd,61,,2019-07-15,ArCo,Arenaria congesta,DRC1,0,19,0.04877,7,12,,floral,10:02,10:45,11:05,2019
+AC_62_1907015_Pau_7162019_08.qgd,62,,2019-07-15,ArCo,Arenaria congesta,DRC3,0,26,0.19194,18,45,,floral,10:33,11:17,11:37,2019
+AC_63_1907015_Paul_7162019_09.qgd,63,,2019-07-15,ArCo,Arenaria congesta,JMP3,0,23,0.03935,5,8,,floral,10:43,11:27,11:47,2019
+AC_83_190719_Paul_832019_03.qgd,83,,2019-07-19,ArCo,Arenaria congesta,JMP2,0,26,0.06802,13,6,,floral,11:22,12:06,12:26,2019
+Air_00_190625_Paul_6252019_21.qgd,0,,2019-06-25,Air,Ambient,JMP2,,,,,,,ambient,9:55,10:37,10:57,2019
+Air_07_190625_Paul_732019_03.qgd,7,,2019-06-25,Air,Ambient,DRC1,,,,,,,ambient,11:13,11:56,12:16,2019
+Air_08_190626_Paul_6282019_21.qgd,8,,2019-06-26,Air,Ambient,DRC1,,,,,,,ambient,9:29,10:12,10:32,2019
+Air_104_190725_Paul_842019_14.qgd,104,,2019-07-25,Air,Ambient,JMP3,,,,,,,ambient,11:00,11:41,12:01,2019
+Air_105_190729_Paul_842019_15.qgd,105,,2019-07-29,Air,Ambient,DRC1,,,,,,,ambient,11:00,11:43,12:03,2019
+Air_110_190729_Paul_842019_20.qgd,110,,2019-07-29,Air,Ambient,DRC1,,,,,,,ambient,12:00,12:41,1:01,2019
+Air_14_190626_Paul_782019_20.qgd,14,,2019-06-26,Air,Ambient,DRC1,,,,,,,ambient,10:40,11:23,11:43,2019
+Air_15_190627_Paul_782019_21.qgd,15,,2019-06-27,Air,Ambient,JMP1,,,,,,,ambient,9:43,10:25,10:45,2019
+Air_23_190627_Paul_792019_03.qgd,23,,2019-06-27,Air,Ambient,JMP3,,,,,,,ambient,11:20,12:03,12:23,2019
+Air_24_190628_Paul_792019_04.qgd,24,,2019-06-28,Air,Ambient,DRC1,,,,,,,ambient,9:38,10:21,10:41,2019
+Air_33_190628_Paul_792019_14.qgd,33,,2019-06-28,Air,Ambient,DRC3,,,,,,,ambient,11:03,11:46,12:06,2019
+Air_34_190702_Paul_792019_15.qgd,34,,2019-07-02,Air,Ambient,JMP3,,,,,,,ambient,9:30,10:12,10:32,2019
+Air_40_190702_Paul_792019_20.qgd,40,,2019-07-02,Air,Ambient,JMP2,,,,,,,ambient,10:30,11:10,11:30,2019
+Air_41_190703_Paul_792019_03.qgd,41,,2019-07-03,Air,Ambient,JMP3,,,,,,,ambient,10:00,10:44,11:04,2019
+Air_46_190703_Paul_792019_08.qgd,46,,2019-07-03,Air,Ambient,DRC3,,,,,,,ambient,11:30,12:17,12:37,2019
+Air_47_190709_Paul_792019_09.qgd,47,,2019-07-09,Air,Ambient,JMP3,,,,,,,ambient,9:28,10:12,10:32,2019
+Air_56_190709_Paul_792019_19.qgd,56,,2019-07-09,Air,Ambient,JMP2,,,,,,,ambient,11:24,12:06,12:26,2019
+Air_57_1907015_Paul_7162019_02.qgd,57,,2019-07-15,Air,Ambient,DRC3,,,,,,,ambient,9:41,10:26,10:46,2019
+Air_67_1907015_Paul_7162019_13.qgd,67,,2019-07-15,Air,Ambient,DRC3,,,,,,,ambient,11:44,12:31,12:51,2019
+Air_68_190718_Paul_832019_02.qgd,68,,2019-07-18,Air,Ambient,JMP3,,,,,,,ambient,9:46,10:28,10:48,2019
+Air_76_190718_Paul_832019_08.qgd,76,,2019-07-18,Air,Ambient,JMP1,,,,,,,ambient,11:32,12:15,12:35,2019
+Air_77_190719_Paul_832019_12.qgd,77,,2019-07-19,Air,Ambient,DRC3,,,,,,,ambient,10:42,11:24,11:44,2019
+Air_85_190719_Paul_832019_05.qgd,85,,2019-07-19,Air,Ambient,JMP3,,,,,,,ambient,11:55,12:36,12:56,2019
+Air_86_190722_Paul_832019_06.qgd,86,,2019-07-22,Air,Ambient,JMP1,,,,,,,ambient,10:06,10:48,11:08,2019
+Air_94_190722_Paul_842019_04.qgd,94,,2019-07-22,Air,Ambient,JMP1,,,,,,,ambient,11:18,11:59,12:19,2019
+Air_95_190725_Paul_842019_05.qgd,95,,2019-07-25,Air,Ambient,JMP2,,,,,,,ambient,9:19,10:02,10:22,2019
+AM_84_190719_Paul_832019_04.qgd,84,,2019-07-19,AcMi,Achillea millefolium,DRC3,0,21,0.22441,39,9,,floral,11:27,12:10,12:30,2019
+AM_91_190722_Paul_832019_11.qgd,91,,2019-07-22,AcMi,Achillea millefolium,JMP2,0.1,33,0.23709,32,0,,floral,11:06,11:46,12:06,2019
+AM_92_190722_Paul_842019_02.qgd,92,,2019-07-22,AcMi,Achillea millefolium,DRC3,0,39,0.17114,31,0,,floral,11:08,11:50,12:10,2019
+AM_93_190722_Paul_842019_03.qgd,93,,2019-07-22,AcMi,Achillea millefolium,DRC1,0,29,0.21177,47,8,,floral,11:15,11:56,12:16,2019
+AqC_111_190729_Paul_842019_21.qgd,111,,2019-07-29,AqCa,Aquilegia caerulea,JMP3,4.8,77,0.10927,1,0,,floral,12:09,12:49,1:09,2019
+Blank_1_792019_02.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_2_782019_15.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_2a_792019_11.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_2b_792019_12.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_3_6252019_20.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_3a_190627_Paul_782019_22.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_3b_6282019_21.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_3c_732019_22.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_3d_782019_23.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_4_792019_21.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_5_190715_Paul_7162019_01.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_5a_1907015_Paul_7162019_07.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_5b_1907015_Paul_7162019_14.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_6_190718_Paul_832019_01.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_6a_190718_Paul_832019_11.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_7_190718_Paul_832019_01.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_8_Paul_842019_01.qgd,,,,,,,,,,,,remove,blank,,,,2019
+Blank_9_Paul_842019_22.qgd,,,,,,,,,,,,remove,blank,,,,2019
+BS_16_190627_Paul_792019_02.qgd,16,,2019-06-27,BoSt,Boechera stricta,DRC1,2.5,34,0.02697,5,3,,floral,9:27,10:10,10:30,2019
+BS_17_190627_Paul_782019_24.qgd,17,,2019-06-27,BoSt,Boechera stricta,DRC3,66.6,33,0.02234,4,2,,floral,9:36,10:19,10:39,2019
+CL_03_190625_Paul_722019_21.qgd,3,,2019-06-25,ClLa,Claytonia lanceolatum,JMP1,21.2,7,0.00852,1,0,2 leaves,floral,10:10,10:52,11:12,2019
+CL_04_190625_Paul_732019_21.qgd,4,,2019-06-25,ClLa,Claytonia lanceolatum,DRC3,19.7,8,0.02117,4,1,,floral,10:20,11:02,11:22,2019
+CL_11_190626_Paul_782019_17.qgd,11,,2019-06-26,ClLa,Claytonia lanceolatum,DRC3,23.9,9,0.02,3,0,,floral,9:41,10:23,10:43,2019
+CR_78_190718_Paul_832019_13.qgd,78,,2019-07-19,CaRo,Campanula rotundifolia,JMP1,0,20,0.01135,1,0,,floral,10:48,11:29,11:49,2019
+CR_79_190718_Paul_832019_14.qgd,79,,2019-07-19,CaRo,Campanula rotundifolia,JMP2,0,23,0.01432,1,0,,floral,10:51,11:34,11:54,2019
+CR_80_190718_Paul_832019_15.qgd,80,,2019-07-19,CaRo,Campanula rotundifolia,DRC1,0.5,24,0.01428,1,0,,floral,10:55,11:37,11:57,2019
+CR_81_190718_Paul_832019_16.qgd,81,,2019-07-19,CaRo,Campanula rotundifolia,JMP3,0,25,0.01285,1,0,,floral,10:58,11:42,12:02,2019
+CR_82_190719_Paul_832019_02.qgd,82,,2019-07-19,CaRo,Campanula rotundifolia,JMP1,0,22,0.0136,1,0,,floral,11:19,12:01,12:21,2019
+CS_73_190718_Paul_832019_07.qgd,73,,2019-07-18,CaSu,Castilleja sulphurea,DRC1,0.9,42,0.26995,10,4,,floral,11:24,12:05,12:25,2019
+CS_74_190718_Paul_832019_09.qgd,74,,2019-07-18,CaSu,Castilleja sulphurea,JMP2,0.2,47,0.21565,12,2,caterpillar,floral,11:27,12:09,12:29,2019
+CS_75_190718_Paul_832019_10.qgd,75,,2019-07-18,CaSu,Castilleja sulphurea,DRC3,0.5,44,0.29222,12,1,,floral,11:29,12:12,12:32,2019
+DA_35_190702_Paul_792019_16.qgd,35,,2019-07-02,DrAu,Draba aurea,DRC3,21,34,0.05508,14,6,,floral,9:32,10:15,10:35,2019
+DA_36_190702_Paul_792019_20.qgd,36,,2019-07-02,DrAu,Draba aurea,JMP2,20.7,32,0.04378,13,12,,floral,9:37,10:20,10:40,2019
+DA_37_190702_Paul_792019_18.qgd,37,,2019-07-02,DrAu,Draba aurea,DRC1,19.9,25,0.04489,10,12,,floral,9:43,10:24,10:44,2019
+DG_109_190729_Paul_842019_19.qgd,109,,2019-07-29,DeBa,Delphinium barbeyii,JMP2,7.9,125,0.08999,3,0,,floral,11:14,12:00,12:20,2019
+EG_01_190625_Paul_6252019_22.qgd,1,,2019-06-25,ErGr,Erythronium grandiflora,JMP3,30.1,10,0.02785,1,0,,floral,9:49,10:31,10:51,2019
+EG_02_190625_Paul_722019_20.qgd,2,,2019-06-25,ErGr,Erythronium grandiflora,DRC1,32.4,13,0.023,1,0,,floral,10:01,10:44,11:04,2019
+ES_69_190718_Paul_832019_03.qgd,69,,2019-07-18,ErSu,Eriogonum subalpinum,JMP1,1.2,41,0.0454,41,16,,floral,9:53,10:35,10:55,2019
+ES_70_190718_Paul_832019_04.qgd,70,,2019-07-18,ErSu,Eriogonum subalpinum,DRC3,2.8,24,0.18345,107,111,acari,floral,9:59,10:42,11:02,2019
+ES_71_190718_Paul_832019_05.qgd,71,,2019-07-18,ErSu,Eriogonum subalpinum,DRC1,2.8,32,0.13739,85,91,,floral,10:02,10:46,11:06,2019
+ES_72_190718_Paul_832019_06.qgd,72,,2019-07-18,ErSu,Eriogonum subalpinum,JMP2,2.1,33,0.24374,167,161,,floral,10:07,10:48,11:08,2019
+EU_48_190709_Paul_792019_10.qgd,48,,2019-07-09,ErUm,Eriogonum umbellatum,JMP2,1.2,16,0.10932,23,28,,floral,9:32,10:15,10:35,2019
+EU_49_190709_Paul_792019_12.qgd,49,,2019-07-09,ErUm,Eriogonum umbellatum,JMP1,1.1,18,0.11984,18,63,,floral,9:36,10:18,10:38,2019
+EU_54_190709_Paul_792019_16.qgd,54,,2019-07-09,ErUm,Eriogonum umbellatum,JMP3,1.3,22,0.18224,29,41,,floral,11:07,11:51,12:11,2019
+EU_58_1907015_Paul_7162019_03.qgd,58,,2019-07-15,ErUm,Eriogonum umbellatum,JMP3,0,11,0.15214,62,83,,floral,9:47,10:29,10:49,2019
+EU_59_1907015_Paul_7162019_04.qgd,59,,2019-07-15,ErUm,Eriogonum umbellatum,JMP2,0,12,0.27528,109,32,,floral,9:53,10:36,10:56,2019
+FS_42_190703_Paul_792019_04.qgd,42,,2019-07-03,FrSp,Frasera speciosa,JMP1,14.3,120,0.14157,1,0,,floral,10:02,10:50,11:10,2019
+FS_43_190703_Paul_792019_05.qgd,43,,2019-07-03,FrSp,Frasera speciosa,JMP2,10.1,136,0.15848,1,0,,floral,10:07,10:54,11:14,2019
+FV_55_190709_Paul_792019_18.qgd,55,,2019-07-09,FrVi,Fragaria virginiana,DRC1,1.7,4,0.03151,1,2,,floral,11:12,11:56,12:16,2019
+GB_87_190722_Paul_832019_07.qgd,87,,2019-07-22,GaBo,Galeum boreale,JMP3,0,23,0.05899,58,27,,floral,10:10,10:51,11:11,2019
+GB_88_190722_Paul_832019_08.qgd,88,,2019-07-22,GaBo,Galeum boreale,DRC3,0,19,0.02811,34,0,,floral,10:14,10:55,11:15,2019
+GB_89_190722_Paul_832019_09.qgd,89,,2019-07-22,GaBo,Galeum boreale,DRC1,0,22,0.03678,30,15,,floral,10:18,10:59,11:19,2019
+GB_90_190722_Paul_832019_10.qgd,90,,2019-07-22,GaBo,Galeum boreale,JMP2,0,25,0.04679,28,14,,floral,10:21,11:02,11:22,2019
+HC_05_190625_Paul_732019_20.qgd,5,,2019-06-25,HyCa,Hydrophyllum capitatum,JMP3,14.7,7,0.2011,28,0,,floral,10:29,11:11,11:32,2019
+HC_06_190625_Paul_732019_02.qgd,6,,2019-06-25,HyCa,Hydrophyllum capitatum,JMP2,13.7,8,0.134,35,0,Oven bag not heat sealed,floral,11:05,11:46,12:06,2019
+HC_27_190628_Paul_792019_07.qgd,27,,2019-06-28,HyCa,Hydrophyllum capitatum,JMP3,15.7,13,0.43695,51,0,,floral,10:02,10:44,11:04,2019
+HC_28_190628_Paul_792019_08.qgd,28,,2019-06-28,HyCa,Hydrophyllum capitatum,DRC3,12.6,7,0.21693,20,0,,floral,10:05,10:47,11:07,2019
+HV_100_190725_Paul_842019_10.qgd,100,,2019-07-25,HeVi,Heterotheca villosa,JMP2,0.8,20,0.10165,2,0,,floral,10:41,11:22,11:42,2019
+HV_101_190725_Paul_842019_11.qgd,101,,2019-07-25,HeVi,Heterotheca villosa,JMP1,0,24,0.05117,1,0,,floral,10:47,11:29,11:49,2019
+HV_102_190725_Paul_842019_12.qgd,102,,2019-07-25,HeVi,Heterotheca villosa,DRC3,0,21,0.06601,1,0,,floral,10:51,11:32,11:52,2019
+HV_103_190725_Paul_842019_13.qgd,103,,2019-07-25,HeVi,Heterotheca villosa,DRC1,0,18,0.05325,1,0,,floral,10:57,11:38,11:58,2019
+LD_45_190703_Paul_792019_07.qgd,45,,2019-07-03,LoDi,Lomatium dissectum,DRC3,5.3,51,0.17414,113,0,,floral,10:36,11:26,11:46,2019
+LL_50_190709_Paul_792019_13.qgd,50,,2019-07-09,LaLl,Lathyrus lanszwartii,DRC1,2.4,19,0.14839,6,0,,floral,9:44,10:26,10:46,2019
+LL_51_190709_Paul_792019_14.qgd,51,,2019-07-09,LaLl,Lathyrus lanszwartii,DRC3,2.4,10,0.04965,4,0,,floral,9:47,10:30,10:50,2019
+LL_52_190709_Paul_792019_15.qgd,52,,2019-07-09,LaLl,Lathyrus lanszwartii,JMP1,2.3,18,0.06432,3,0,,floral,10:02,10:46,11:06,2019
+LL_53_190709_Paul_7102019_03.qgd,53,,2019-07-09,LaLl,Lathyrus lanszwartii,JMP2,2.3,14,0.04929,3,0,,floral,10:04,10:50,11:10,2019
+MC_106_190729_Paul_842019_16.qgd,106,,2019-07-29,MeCi,Mertensia ciliata,DRC3,23.3,90,0.06047,8,5,,floral,10:57,11:40,12:00,2019
+MC_107_190729_Paul_842019_17.qgd,107,,2019-07-29,MeCi,Mertensia ciliata,JMP1,14.9,79,0.06121,5,6,,floral,11:05,11:47,12:07,2019
+MC_108_190729_Paul_842019_18.qgd,108,,2019-07-29,MeCi,Mertensia ciliata,JMP3,6.7,70,0.02436,7,1,,floral,11:09,11:51,12:11,2019
+MF_13_190626_Paul_782019_19.qgd,13,,2019-06-26,MeFu,Mertensia fusiformis,JMP3,9.9,11,0.05347,18,0,,floral,10:00,10:43,11:03,2019
+MF_20_190627_Paul_782019_27.qgd,20,,2019-06-27,MeFu,Mertensia fusiformis,DRC1,22.9,19,0.10505,25,3,,floral,10:34,11:10,11:30,2019
+MF_29_190628_Paul_792019_09.qgd,29,,2019-06-28,MeFu,Mertensia fusiformis,DRC1,32.6,10,0.3075,13,0,,floral,10:12,10:55,11:15,2019
+MF_30_190628_Paul_792019_10.qgd,30,,2019-06-28,MeFu,Mertensia fusiformis,JMP1,14,13,0.02427,7,0,,floral,10:36,11:16,11:36,2019
+MR_12_190626_Paul_782019_18.qgd,12,,2019-06-26,MaRe,Mahonia repens,JMP1,3.5,5,0.14236,11,4,,floral,9:48,10:30,10:50,2019
+MR_21_190627_Paul_782019_28.qgd,21,,2019-06-27,MaRe,Mahonia repens,DRC3,5.4,4,0.09712,13,4,Aphid,floral,11:00,11:42,12:02,2019
+MR_31_190627_Paul_792019_12.qgd,31,,2019-06-28,MaRe,Mahonia repens,JMP3,4.8,9,0.1559,17,4,Ant,floral,10:41,11:23,11:43,2019
+MR_32_190627_Paul_792019_13.qgd,32,,2019-06-28,MaRe,Mahonia repens,JMP2,3.2,5,0.06835,11,0,,floral,11:01,11:43,12:03,2019
+MR_44_190703_Paul_792019_06.qgd,44,,2019-07-03,MaRe,Mahonia repens,DRC1,0.1,8,0.24963,21,3,,floral,10:24,11:33,11:53,2019
+PH_64_1907015_Paul_7162019_10.qgd,64,,2019-07-15,PoHi,Potentilla hippiana,JMP2,0.2,17,0.1299,2,9,,floral,11:21,12:04,12:24,2019
+SI_18_190627_Paul_782019_25.qgd,18,,2019-06-27,SeIn,Senecio integerrimus,JMP3,5.4,48,0.57792,9,0,,floral,9:54,10:37,10:57,2019
+SI_19_190627_Paul_782019_26.qgd,19,,2019-06-27,SeIn,Senecio integerrimus,JMP2,5.1,47,0.55898,7,2,,floral,10:00,10:42,11:02,2019
+SL_96_190725_Paul_842019_06.qgd,96,,2019-07-25,SeLa,Sedum lanceolatum,DRC1,0,10,0.11808,4,4,,floral,9:26,10:06,10:26,2019
+SL_97_190725_Paul_842019_07.qgd,97,,2019-07-25,SeLa,Sedum lanceolatum,JMP3,0,12,0.09534,11,6,,floral,9:31,10:12,10:32,2019
+SL_98_190725_Paul_842019_08.qgd,98,,2019-07-25,SeLa,Sedum lanceolatum,DRC3,0,7,0.00551,1,0,,floral,9:36,10:16,10:36,2019
+SL_99_190725_Paul_842019_09.qgd,99,,2019-07-25,SeLa,Sedum lanceolatum,JMP1,0,15,0.05799,6,6,,floral,9:41,10:22,10:42,2019
+VA_65_1907015_Paul_7162019_11.qgd,65,,2019-07-15,ViAm,Vicia americana,JMP1,0,18,0.04567,6,0,,floral,11:24,12:07,12:27,2019
+VA_66_1907015_Paul_7162019_12.qgd,66,,2019-07-15,ViAm,Vicia americana,DRC1,0.8,26,0.02755,4,0,thrips,floral,11:36,12:18,12:38,2019
+VP_09_190626_Paul_6282019_22.qgd,9,,2019-06-26,ViPr,Viola praemorsa,JMP2,19.4,5,0.01005,1,0,,floral,9:23,10:06,10:26,2019
+VP_10_190626_Paul_782019_16.qgd,10,,2019-06-26,ViPr,Viola praemorsa,JMP3,17.4,6,0.00961,1,0,,floral,9:25,10:07,10:27,2019
+VP_22_190627_Paul_792019_02.qgd,22,,2019-06-27,ViPr,Viola praemorsa,JMP2,13.5,6,0.00992,1,0,,floral,11:19,12:00,12:20,2019
+VP_25_190628_Paul_792019_05.qgd,25,,2019-06-28,ViPr,Viola praemorsa,JMP2,4.1,6,0.00782,1,0,,floral,9:43,10:26,10:46,2019
+VP_26_190628_Paul_792019_06.qgd,26,,2019-06-28,ViPr,Viola praemorsa,JMP1,13.2,11,0.01194,1,0,,floral,9:47,10:30,10:50,2019
+Achmil1Jun27_08232018.qgd,,PAchmil1Jun27,,AcMi,Achillea millefolium,,1.1,,0.22301,,,,floral,,,,2018
+Achmil2Jul17_08232018.qgd,,PAchmil2Jul17,,AcMi,Achillea millefolium,,4.3,,0.43491,,,,floral,,,,2018
+Achmil4Aug6_08222018.qgd,,PAchmil4Aug6,,AcMi,Achillea millefolium,,1.7,,0.36929,,,,floral,,,,2018
+Achmil5Aug8_08222018.qgd,,PAchmil5Aug8,,AcMi,Achillea millefolium,,2.4,,0.17298,,,,floral,,,,2018
+AirJuly 16_07252018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirAug10_08282018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirAug1_08272018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirAug3_08272018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirAug6_08262018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirAug8_08222018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirAug9_08232018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJul11_08282018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJul12_08282018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJul13_08272018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJul17_08232018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJul23_08242018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJul2_08282018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJul31_08242018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJul6_08272018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJul9_08262018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJun10_08242018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJun20_08282018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJun21_08272018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJun25_08282018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJun26_08282018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJun27_08282018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+AirJun28_08272018.qgd,,,,Air,,,,,,,,,ambient,,,,2018
+Arecon1Jun23_08272018.qgd,,PArecon1Jun28,,ArCo,Arenaria congesta,,0.7,,0.028,,,,floral,,,,2018
+Arecon3Jul13_08262018.qgd,,PArecon2Jul13,,ArCo,Arenaria congesta,,3.8,,0.03851,,,,floral,,,,2018
+Arecon4Aug3_08222018.qgd,,PArecon4Aug3,,ArCo,Arenaria congesta,,7.1,,0.05506,,,,floral,,,,2018
+Arecon4Jul17_08242018.qgd,,PArecon3Jul17,,ArCo,Arenaria congesta,,8.8,,0.03305,,,,floral,,,,2018
+Blank10_08282018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank2_08222018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank3_08232018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank4_08242018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank5_08242018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank6_08262018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank7_08272018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank8_08272018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank9_08282018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank_07252018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Blank_08222018.qgd,,,,,,,,,,,,remove,blank,,,,2018
+Boestr1Jun25_08282018.qgd,,PBoestr1Jun25,,BoSt,Boechera stricta,,1.8,,0.01069,,,,floral,,,,2018
+Boestr2Jun25_08282018.qgd,,PBoestr2Jun25,,BoSt,Boechera stricta,,1.7,,0.04509,,,,floral,,,,2018
+Boestr3Jun26_08242018.qgd,,,,BoSt,Boechera stricta,,,,,,,remove,floral,,,,2018
+Boestr4Jul11_08232018.qgd,,PBoestr4Jul11,,BoSt,Boechera stricta,,4.3,,0.01072,,,,floral,,,,2018
+Camrot1Jul12_08282018.qgd,,PCamrot1Jul12,,CaRo,Campanula rotundifolia,,1.8,,0.01662,,,,floral,,,,2018
+Camrot2Jul17_08272018.qgd,,PCamrot2Jul17,,CaRo,Campanula rotundifolia,,1.2,,0.08306,,,,floral,,,,2018
+Camrot3Aug3_08282018.qgd,,PCamrot3Aug3,,CaRo,Campanula rotundifolia,,1.1,,0.08196,,,,floral,,,,2018
+Camrot4Aug6_08232018.qgd,,PCamrot4Aug6,,CaRo,Campanula rotundifolia,,0,,0.01406,,,,floral,,,,2018
+Camrot5Aug8_08222018.qgd,,PCamrot5Aug8,,CaRo,Campanula rotundifolia,,3.1,,0.0176,,,,floral,,,,2018
+Cassul1Jun28_08232018.qgd,,PCassul1Jun28,,CaSu,Castilleja sulphurea,,2.5,,0.1751,,,,floral,,,,2018
+Cassul2Jul13_08282018.qgd,,PCassul2Jul13,,CaSu,Castilleja sulphurea,,1.2,,0.07145,,,,floral,,,,2018
+Cassul3Jul17_08282018.qgd,,PCassul3Jul17,,CaSu,Castilleja sulphurea,,4.6,,0.09391,,,,floral,,,,2018
+Cassul4Aug3_08272018.qgd,,PCassul4Aug3,,CaSu,Castilleja sulphurea,,10.6,,0.10126,,,,floral,,,,2018
+Clalan1Jul7_08232018.qgd,,PClalan1Jul7,,ClLa,Claytonia lanceolatum,,,,0.00569,,,,floral,,,,2018
+Clalan2Jul2_08222018.qgd,,PClalan2Jul2,,ClLa,Claytonia lanceolatum,,,,0.00438,,,,floral,,,,2018
+Clalan3July 2_07252018.qgd,,PClalan3Jul2,,ClLa,Claytonia lanceolatum,,,,0.0278,,,,floral,,,,2018
+Draaur1Jun27_08222018.qgd,,PDraaur1Jun27,,DrAu,Draba aurea,,1.7,,0.01546,,,,floral,,,,2018
+Draaur2Jun28_08242018.qgd,,PDraaur2Jun28,,DrAu,Draba aurea,,2.3,,0.01414,,,,floral,,,,2018
+Erisub1Jun21_08272018.qgd,,PErisub1Jun21,,ErSu,Eriogonum subalpinum,,6.9,,0.29519,,,,floral,,,,2018
+Erisub2Jun27_08282018.qgd,,PErisub2Jun27,,ErSu,Eriogonum subalpinum,,1.7,,0.25482,,,,floral,,,,2018
+Erisub3Jul23_08272018.qgd,,PErisub3Jul23,,ErSu,Eriogonum subalpinum,,0.7,,0.18823,,,,floral,,,,2018
+Eriumb3Jul12_08272018.qgd,,PEriumb3Jul12,,ErUm,Eriogonum umbellatum,,1.5,,0.1718,,,,floral,,,,2018
+Erygra1Jul2_08262018.qgd,,PErygra1Jul2,,ErGr,Erythronium grandiflora,,,,0.45,,,,floral,,,,2018
+Erygra2Jul2_08282018.qgd,,PErygra2Jul2,,ErGr,Erythronium grandiflora,,,,0.02019,,,,floral,,,,2018
+Erygra3Jul2_08222018.qgd,,PErygra3Jul2,,ErGr,Erythronium grandiflora,,,,0.03665,,,,floral,,,,2018
+Galbor1Jun21_08242018.qgd,,PGalbor1Jun21,,GaBo,Galeum boreale,,3.8,,0.07028,,,,floral,,,,2018
+Galbor2Jun28_08242018.qgd,,PGalbor2Jun28,,GaBo,Galeum boreale,,0.7,,0.11839,,,,floral,,,,2018
+Galbor3Jul23_08272018.qgd,,PGalbor3Jul23,,GaBo,Galeum boreale,,2.5,,0.03516,,,,floral,,,,2018
+Galbor4Jul30_08222018.qgd,,PGalbor4Jul30,,GaBo,Galeum boreale,,1.4,,0.0542,,,,floral,,,,2018
+Galbor5Aug9_08232018.qgd,,PGalbor5Aug9,,GaBo,Galeum boreale,,7.1,,0.11423,,,,floral,,,,2018
+Hetvil1Jul12_08262018.qgd,,PHetvil1Jul12,,HeVi,Heterotheca villosa,,2.4,,0.0537,,,,floral,,,,2018
+Hetvil2Jul17_08272018.qgd,,PHetvil2Jul17,,HeVi,Heterotheca villosa,,1.3,,0.12998,,,,floral,,,,2018
+Hetvil3Jul31_08242018.qgd,,PHetvil3Jul31,,HeVi,Heterotheca villosa,,1.6,,0.0622,,,,floral,,,,2018
+Hetvil4Aug6_08222018.qgd,,PHetvil4Aug6,,HeVi,Heterotheca villosa,,0.4,,0.0625,,,,floral,,,,2018
+Hetvil5Aug8_08222018.qgd,,PHetvil5Aug10,,HeVi,Heterotheca villosa,,1.4,,0.06142,,,,floral,,,,2018
+Latleu1Jun20_08272018.qgd,,PLatleu1Jun20,,LaLe,Lathyrus lanszwartii,,5.5,,0.04288,,,,floral,,,,2018
+Latleu2Jun27_08242018.qgd,,PLatleu2Jun27,,LaLe,Lathyrus lanszwartii,,1.7,,0.02454,,,,floral,,,,2018
+Mercil1July6_07252018.qgd,,PMercil1Jul6,,MeCi,Mertensia ciliata,,2.5,,0.05529,,,,floral,,,,2018
+Mercil2Jul6_08262018.qgd,,PMercil2Jul6,,MeCi,Mertensia ciliata,,2.3,,0.0421,,,,floral,,,,2018
+Pothip1Jul13_08282018.qgd,,PPothip1Jul13,,PoHi,Potentilla hippiana,,2.5,,0.03815,,,,floral,,,,2018
+Pothip2Jul17_08282018.qgd,,PPothip2Jul17,,PoHi,Potentilla hippiana,,1.9,,0.09931,,,,floral,,,,2018
+Sedlan1Jun26_08222018.qgd,,PSedlan1Jun26,,SeLa,Sedum lanceolatum,,1.2,,0.2375,,,,floral,,,,2018
+Sedlan2Jul9_08242018.qgd,,,,SeLa,Sedum lanceolatum,,,,,,,remove,floral,,,,2018
+Sedlan4Jul17_08282018.qgd,,PSedlan4Jul17,,SeLa,Sedum lanceolatum,,0.6,,0.03658,,,,floral,,,,2018
+Senint1Jun22_08272018.qgd,,PSenint1Jun22,,SeIn,Senecio integerrimus,,1.1,,0.234515,,,,floral,,,,2018
+Senint2Jul13_08272018.qgd,,PSenint2Jul13,,SeIn,Senecio integerrimus,,4.9,,0.06005,,,,floral,,,,2018
+Vicame1Jun20_08272018.qgd,,PVicame1Jun20,,ViAm,Vicia americana,,2.2,,0.03382,,,,floral,,,,2018
+Vicame2Jul10_08282018.qgd,,PVicame2Jul10,,ViAm,Vicia americana,,0,,0.01268,,,,floral,,,,2018
+Vicame3Jul10_08282018.qgd,,PVicame3Jul10,,ViAm,Vicia americana,,1.4,,0.01675,,,,floral,,,,2018
+Vicame4Jul30_08222018.qgd,,PVicame4Jul30,,ViAm,Vicia americana,,4,,0.0175,,,,floral,,,,2018
+ACAug5_08242017.qgd,,,,ArCo,Arenaria congesta,,,,,,,,floral,,,,2017
+ACAug9_08262017.qgd,,,,ArCo,Arenaria congesta,,,,,,,,floral,,,,2017
+ACJul21_08162017.qgd,,,,ArCo,Arenaria congesta,,,,,,,,floral,,,,2017
+ACJul26_08242017.qgd,,,,ArCo,Arenaria congesta,,,,,,,,floral,,,,2017
+AirAug20_08262017.qgd,,,,Air,,,,,,,,,ambient,,,,2017
+AirAug25_08262017.qgd,,,,Air,,,,,,,,,ambient,,,,2017
+AirAug3_08262017.qgd,,,,Air,,,,,,,,,ambient,,,,2017
+AirAug5_08242017.qgd,,,,Air,,,,,,,,,ambient,,,,2017
+AirAug9_08262017.qgd,,,,Air,,,,,,,,,ambient,,,,2017
+AirJul21_08162017.qgd,,,,Air,,,,,,,,,ambient,,,,2017
+AirJul26_08242017.qgd,,,,Air,,,,,,,,,ambient,,,,2017
+AirJul28_08242017.qgd,,,,Air,,,,,,,,,ambient,,,,2017
+AirJul30_08242017.qgd,,,,Air,,,,,,,,,ambient,,,,2017
+AMAug5_08242017.qgd,,,,AcMi,Achillea millefolium,,,,,,,,floral,,,,2017
+AMJul21_08162017.qgd,,,,AcMi,Achillea millefolium,,,,,,,,floral,,,,2017
+AMJul28_08242017.qgd,,,,AcMi,Achillea millefolium,,,,,,,,floral,,,,2017
+CRAug9_08262017.qgd,,,,CaRo,Campanula rotundifolia,,,,,,,,floral,,,,2017
+CRJul21_08162017.qgd,,,,CaRo,Campanula rotundifolia,,,,,,,,floral,,,,2017
+CRJul26_08242017.qgd,,,,CaRo,Campanula rotundifolia,,,,,,,,floral,,,,2017
+CRJul30_08242017.qgd,,,,CaRo,Campanula rotundifolia,,,,,,,,floral,,,,2017
+ESAug9_08262017.qgd,,,,ErSu,Eriogonum subalpinum,,,,,,,,floral,,,,2017
+ESJul21_08162017.qgd,,,,ErSu,Eriogonum subalpinum,,,,,,,,floral,,,,2017
+ESJul26_08242017.qgd,,,,ErSu,Eriogonum subalpinum,,,,,,,,floral,,,,2017
+ESJul30_08242017.qgd,,,,ErSu,Eriogonum subalpinum,,,,,,,,floral,,,,2017
+GBAug5_08242017.qgd,,,,GaBo,Galeum boreale,,,,,,,,floral,,,,2017
+GBAug9_08262017.qgd,,,,GaBo,Galeum boreale,,,,,,,,floral,,,,2017
+GBJul21_08162017.qgd,,,,GaBo,Galeum boreale,,,,,,,,floral,,,,2017
+GBJul26_08242017.qgd,,,,GaBo,Galeum boreale,,,,,,,,floral,,,,2017
+HVAug9_08262017.qgd,,,,HeVi,Heterotheca villosa,,,,,,,,floral,,,,2017
+HVJul21_08162017.qgd,,,,HeVi,Heterotheca villosa,,,,,,,,floral,,,,2017
+HVJul26_08242017.qgd,,,,HeVi,Heterotheca villosa,,,,,,,,floral,,,,2017
+HVJul30_08242017.qgd,,,,HeVi,Heterotheca villosa,,,,,,,,floral,,,,2017

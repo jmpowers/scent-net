@@ -1,0 +1,154 @@
+---
+title: "Dry meadow volatiles"
+author: "Janelle Bohey, John Powers, Lucas Sharrett, Amanda Barth"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    self_contained: no
+    lib_dir: libs
+    code_folding: hide
+    toc: yes
+    toc_float: TRUE 
+---
+<style type="text/css">
+.main-container { max-width: 1000px; margin-left: 0; margin-right: auto; }
+img{ max-width:200%; height: auto; }
+td, th { padding : 6px }
+</style>
+
+```{r setup, include=FALSE}
+library(reshape2)
+library(tidyverse)
+library(vegan)
+library(knitr)
+#install.packages("remotes")
+#remotes::install_github("jmpowers/bouquet", build_vignettes = TRUE)
+library(bouquet)
+knitr::opts_chunk$set(comment="", cache=T, warning=F, message=F, 
+                      fig.path = "plots/", dev="svglite", dev.args=list(fix_text_size=FALSE), fig.height=8, fig.width=10)
+```
+
+```{r read_scents}
+#DryMeadow = Barth2017 (32) + Barth2018 (92) + Paul's Meadow 2019 (130) =  254 samples
+#BigBoysDontCry: first 67 meadow samples in 2019, only through July 3
+# source("read_shimadzu.R")
+# vol.data <- read.shimadzu("~/Downloads/paul/DryMeadowTotal.txt")
+# save(vol.data, file="data/drymeadow_data.rda")
+
+load("data/drymeadow_data.rda")
+vol.all <- dcast(vol.data, Filename~Name, sum, value.var="Area")
+rownames(vol.all) <- vol.all[,1]
+vol.all[,1] <- NULL
+```
+
+# Metadata
+
+```{r metadata}
+metadata <- read_csv("data/BIGMETADATA2.csv") %>% 
+  mutate(equil=pump-bag, pumping=end-pump, year=factor(year), 
+         sp = na_if(sp,"Air"), species=na_if(species,"Ambient")) %>% 
+  left_join(vol.data %>% count(Filename, name="peaks")) %>% 
+  left_join(enframe(rowSums(vol.all), name="Filename", value="unfiltered_area")) %>% 
+  load_metadata(date="date", sample="Filename", group = "sp", type="type", amount = "biomass")
+spnames <- distinct(metadata, sp, species) %>% drop_na(species) %>% deframe()
+
+count(metadata, type, year) %>% kable(caption="samples of each type")
+
+ggplot(count(drop_na(metadata, sp), sp,year), aes(x=year, y=sp, fill=n, label=n)) + 
+  geom_tile() + geom_text() + scale_fill_viridis_c() #NA = GC blank or ambient
+
+count(drop_na(metadata,sp), sp, year) %>% count(year) %>% kable(caption="species in each year")
+sp.years <- count(drop_na(metadata,sp), sp, year) %>% count(sp) %>% arrange(n)
+kable(sp.years, caption="years of sampling for each species")
+
+ggplot(drop_na(metadata, flrs), aes(x=flrs, y=fct_reorder(species, flrs))) + geom_boxplot()
+
+ggplot(drop_na(metadata, amount), aes(x=amount, y=fct_reorder(species, amount))) + geom_boxplot() + labs(x="biomass (g)")
+
+ggplot(metadata, aes(x=amount, y=flrs, color=sp)) + geom_path(aes(group=sp)) + geom_text(aes(label=sp)) + 
+  labs(x="biomass (g)") + scale_x_sqrt() + scale_y_sqrt() + guides(color=F)
+
+summarize(metadata, .by=sp, across(c(amount,flrs), ~mean(.x, na.rm=T))) %>% 
+  ggplot(aes(x=amount, y=flrs, color=sp)) + geom_text(aes(label=sp)) + labs(x="biomass (g)", title="Averaged by species") + 
+  scale_x_sqrt() + scale_y_sqrt() + guides(color=F)
+
+ggplot(metadata, aes(x=peaks, y=unfiltered_area, color=year, shape=type, linetype=type)) + geom_point() + geom_smooth(se=F)
+```
+
+# Filtering
+
+```{r filtering}
+longdata <- load_longdata(vol.data, sample = "Filename", RT = "Ret.Time", 
+                          name = "Name", area = "Area", match = "SI", maxmatch=100)
+sampletable <- make_sampletable(longdata, metadata)
+
+chemtable <- make_chemtable(longdata, metadata) %>% 
+  filter_RT(2, 20) %>% 
+  filter_match(0.8) %>% 
+  filter_freq(0.2, group = TRUE) %>% 
+  filter_contaminant(cont.list = "Caprolactam") %>% 
+  filter_area(min_maximum = 4e5) %>%
+  filter_ambient_ratio(sampletable, metadata, ratio = 3) %>% 
+  filter_ambient_ttest(sampletable, metadata, 
+                       alpha = 0.05, adjust = "fdr") 
+
+chemtable$filter_final <- with(chemtable, filter_RT == "OK" & filter_match =="OK" & 
+                                 filter_freq.floral == "OK" & filter_area == "OK" & 
+                                 filter_ambient_ratio == "OK"  &  filter_contaminant == "OK")
+
+plot_filters(chemtable, option="rarity")
+plot_filters(chemtable, option="ambient")
+plot_filters(chemtable, option="volcano")
+plot_filters(chemtable, option="prop")
+
+vol <- prune_sampletable(sampletable, chemtable, metadata)
+files_exclude <- c("") #TODO any to exclude?
+vol <- vol[!(rownames(vol) %in% files_exclude) ,]
+meta <- metadata[metadata$type == "floral" & !(metadata$sample %in% files_exclude),] %>% droplevels()
+#TODO need pumping times and biomass for 2017+2018 to standardize
+#vol <- vol / as.numeric(meta$equil + meta$pumping)/3600 / meta$amount
+```
+
+# Heatmap
+
+```{r heatmap, dev='png', dev.args=list()}
+library(pheatmap)
+library(dendsort)
+library(viridis)
+ph  <- pheatmap(as.matrix(t(vol))^(1/4), 
+         cluster_cols=T, show_colnames=F,
+         clustering_method="mcquitty", clustering_distance_rows="correlation",
+         clustering_distance_cols=vegdist(vol, method = "bray"),
+         clustering_callback = function(hc, ...){dendsort(hc, type="average")},
+         scale="none", color=magma(512),
+         annotation_col = data.frame(meta %>% select(sp, year, VWC, amount, flrs), row.names=rownames(vol)), 
+   fontsize = 10, border_color = NA, legend=F, annotation_legend=T, cutree_rows=6
+)
+```
+
+# Year comparison
+
+```{r nmds}
+(nmds_vol <- vegan::metaMDS(sqrt(vol), autotransform = F))
+
+plot(nmds_vol, type="n")
+points(nmds_vol, display="sites", col=as.integer(meta$year), pch=19)
+legend("topleft", legend=levels(meta$year), fill=1:3)
+text(nmds_vol, display="species", cex=0.5, col=4)
+
+plot(nmds_vol, type="n")
+points(nmds_vol, display="sites", col=as.integer(meta$year), pch=19)
+ordispider(nmds_vol, meta$sp, display="sites", col=if_else(sp.years$n[match(levels(meta$sp), sp.years$sp)]>1,"blue",NA))
+```
+
+```{r cap}
+(cap_yr <- vegan::capscale(sqrt(vol) ~ year, data=meta))
+anova.cca(cap_yr, by="margin")
+
+plot(cap_yr, type="n")
+points(cap_yr, display="sites", col=as.integer(meta$year), pch=19)
+legend("topleft", legend=levels(meta$year), fill=1:3)
+text(cap_yr, display="species", cex=0.5, col=4)
+kable(arrange(as.data.frame(cap_yr$CCA$v), CAP1)) 
+```
+
