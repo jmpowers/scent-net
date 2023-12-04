@@ -1,21 +1,11 @@
 ---
-title: "Plant-scent-pollinator network"
-author: '[John Powers](http://sites.uci.edu/powers/)'
-date: '`r Sys.Date()`'
-output:
-  html_document:
-    toc: yes
-    toc_float: TRUE
+title: "JB-Scent-Net"
+author: "Janelle Bohey"
+date: "2023-11-28"
+output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
-<style type="text/css">
-.main-container { max-width: 1600px; margin-left: 0; margin-right: auto; }
-img{ max-width:200%; height: auto; }
-td, th { padding : 6px }
-</style>
-
-#Load network and scent data
-From Tables S1 and S2 in:
-Kantsa, A., R.A. Raguso, A.G. Dyer, J.M. Olesen, T. Tscheulin, and T. Petanidou. 2018. Disentangling the role of floral sensory stimuli in pollination networks. Nature Communications 9: 1041. doi:[10.1038/s41467-018-03448-w](https://doi.org/10.1038/s41467-018-03448-w)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, comment="  ", cache=TRUE, fig.width=14, fig.asp=.678)
@@ -23,84 +13,72 @@ library(openxlsx)
 library(data.table)
 library(RColorBrewer)
 pal <- brewer.pal(5,"Set2")
-library(heatmaply)
+#library(heatmaply)
 library(bipartite)
 data(mosquin1967)
 library(vegan)
 library(phytools)
 library(taxize)
+#remotes::install_github("ropensci/brranching")
 library(brranching)
 library(rotl)
 library(dendextend)
-library(heatmaply) 
+library(tidyverse)
+library(heatmaply)
+
 ```
+
 
 ```{r data}
 #load network
-net <- read.delim("Kantsa_etal_Supp_Data1.csv", skip = 2)
-rownames(net) <- net[,1]
-net[,1] <- NULL
-net <- as.matrix(t(net))
-polls <- colnames(net)
-snet <- sortweb(net) #sort by row & column totals
+setwd("~/Desktop/Scent-Net")
+net.long <- read_csv("data/caradonna_rmbl_interaction_networks_data_EDI.csv", na=c("","na", "NA")) %>%    
+      mutate(pollinator_group= if_else(pollinator=="papilio_gothica", "butterfly", pollinator_group)) %>% #fix papilio_gothica from bee -> butterfly
+      mutate(plant= recode(plant,senecio_tall_int = "senecio_integerrimus", agoceris_glauca = "agoseris_glauca", agoceris_aurantiaca="agoseris_aurantiaca", hydrophyllum_fendeleri="hydrophyllum_fendleri"))
 
-#load floral scents
-scent.file <- "Kantsa_2018_Supp_Data2.xlsx"
-plants <- getSheetNames(scent.file)
-scentlist <- lapply(2:length(plants), read.xlsx, xlsxFile=scent.file)
-plants <- plants[-1]
-scent <- rbindlist(scentlist, fill=T, idcol="plant")[,-4]
-colnames(scent)[2:3] <- c("cmpd","mean")
-scent$plant <- factor(plants[scent$plant])
-scent$cmpd <- factor(tolower(scent$cmpd))
-cmpds <- levels(scent$cmpd)
+net <- net.long %>% select(plant, pollinator, interactions) %>% pivot_wider(names_from = plant, values_from = interactions, values_fn= sum, values_fill= 0) %>%  #pivots data set longer so plants as columns and pollinators as rows, replaces NAs with zeros
+    column_to_rownames("pollinator") #pollinators are in first column, makes them into rownames; #deletes the first pollinators column
 
-scent.net <- dcast(scent, plant ~ cmpd, value.var="mean", fun.aggregate=mean, fill=0) #long to wide
-scent.net <- as.data.frame(scent.net)
-rownames(scent.net) <- scent.net[,1]
-scent.net[,c(1,380)] <- NULL #weird NA column has one entry
-scent.net <- as.matrix(scent.net)
 
-scent.net.short <- scent.net[,colSums(scent.net)>0.1]
+net <- as.matrix(t(net)) # turns it from dataframe to matrix bc packages like matrix; t transposes (turns dataset sideways - rows -> columns; columns -> rows) 
+polls <- colnames(net) #now pollinators are column names
+plants<-rownames(net)
+snet <- sortweb(net) #sort by row & column totals; sorted rows by rowsums and columns by column sums. Biggest numbers in top left of matrix
+
+
+
 ```
 
 
 # Plant phylogeny
 ```{r pphylo}
-#plants.class <- classification(plants, db="gbif")
-#save(plants.class, file="plantsclass.Rdata")
-load("plantsclass.Rdata")
+#plants.class <- classification(str_replace(plants,"_"," "), db="gbif")
+#save(plants.class, file="data/plantsclass.Rdata")
+load("data/plantsclass.Rdata")
+#phylogeny based on plant class
 plants.classtree <- class2tree(plants.class) #taxonomic tree
-plants.tree <-phylomatic(taxa=names(plants.class), get = 'POST', storedtree="zanne2014")
+plot(plants.classtree)
+#make phylogeny from Zanne 2014 (giant plant phylogeny)
+plants.tree <-phylomatic(taxa=names(plants.class), get = 'POST', storedtree="zanne2014") 
 plants.tree$tip.label[order(plants.tree$tip.label)] <- plants
 par(mar=c(0,0,0,0))
 cp <- cophylo(plants.tree, plants.classtree$phylo)
 plot(cp)
 ```
 
-# Pollinator phylogeny
-```{r pollphylo}
-polls <- gsub("Bug", "Hemiptera", polls, fixed=T)
-polls <- gsub("Auchenorrhyncha", "Hemiptera", polls, fixed=T)
-polls <- gsub("Fly", "Diptera", polls, fixed=T)
-polls <- gsub("Beetle", "Coleoptera", polls, fixed=T)
-#polls.class <- classification(polls, db="gbif")
-#save(polls.class, file="pollsclass.Rdata")
-load("pollsclass.Rdata")
-polls.gbif <- factor(sapply(polls.class, function(x) tail(x$name, 1)))
-net.lump <- aggregate(.~ polls.gbif, as.data.frame(t(net)), sum)
-rownames(net.lump) <- net.lump[,1]
-net.lump[,1] <- NULL
-net.lump <- as.matrix(t(net.lump))
-rownames(net.lump) <- sort(plants.tree$tip.label)
-polls.classtree <- class2tree(unique(polls.class)) #taxonomic tree
-polls.matched <- tnrs_match_names(lapply(polls.class, function(x) tail(x$name, 1)), context_name = "Animals")
-polls.ids <- ott_id(polls.matched)
-polls.ids <- polls.ids[!polls.ids %in% c(968359, 707236, 707875, 63881, 458953, 42699, 742352, 340559, 672497, 34898, 332969,356987)]
-polls.tree <- tol_induced_subtree(ott_ids=polls.ids)
-par(mar=c(0,0,0,0))
-plot(polls.classtree, cex=0.5)
-plot(polls.tree, cex=0.5)
+
+# Pollinator groups and family
+```{r }
+polls.count <-count(net.long, pollinator_group,pollinator_family, pollinator) #counting number of rows for each pollinator
+polls.class <- tibble(pollinator=polls) %>%  left_join(polls.count) %>% pull(pollinator_group)
+polls.family <- tibble(pollinator=polls) %>%  left_join(polls.count) %>% pull(pollinator_family)
+polls.order.all <- polls.class
+
+net.grp <- aggregate(.~ polls.class, as.data.frame(t(net)), sum) #lump network by pollinator class; plants columns, pollinators rows
+rownames(net.grp) <- net.grp[,1] #make plants rows, pollinators column names
+net.grp[,1] <- NULL
+net.grp <- as.matrix(t(net.grp)) #transposes matrix
+
 ```
 
 
@@ -114,41 +92,28 @@ cophyloplot(plants.tree, polls.classtree$phylo, mnet.lump[,1:2], lwd=sqrt(mnet.l
 
 ##Pollinator groups
 ```{r pollgroups}
-polls.cut <- dendextend::cutree(polls.classtree$phylo,5)
-polls.order <- setNames(factor(sapply(unique(polls.class), function(x) x$name[4])), names(polls.class[!duplicated(polls.class)]))
-polls.order.all <- setNames(factor(sapply(polls.class, function(x) x$name[4])),names(polls.class))
-#table(polls.cut, polls.order)
-
-net.grp <- aggregate(.~ polls.order.all, as.data.frame(t(net)), sum)
-rownames(net.grp) <- net.grp[,1]
-net.grp[,1] <- NULL
-net.grp <- as.matrix(t(net.grp))
-rownames(net.grp) <- sort(plants.tree$tip.label)
-
+#Tells you plants major pollinator
 plants.majorpoll <- setNames(factor(colnames(net.grp)[apply(net.grp, 1, which.max)]), rownames(net.grp))
 
-pcols <- setNames(brewer.pal(4,"Set1"), levels(plants.majorpoll))
-plants.polltrees<-make.simmap(plants.tree,plants.majorpoll,model="ARD",nsim=100)
-plants.polltree<-summary(plants.polltrees,plot=FALSE)
-plot(plants.polltree,colors=pcols,fsize=0.8,cex=c(0,0.3))
-add.simmap.legend(colors=pcols,x=0.9*par()$usr[1],
-    y=0.2*par()$usr[4],prompt=FALSE,fsize=0.9)
+#sets colors for ALL 5 pollinator groups
+pcols.all <- setNames(brewer.pal(5,"Set2"), colnames(net.grp))
 
-pcols.all <- setNames(c(pcols[1:2],brewer.pal(5,"Set1")[5],pcols[3:4]), levels(polls.order.all))
+#Four colors for each major pollinator group
+pcols <- pcols.all[ levels(plants.majorpoll)]
 
 ```
 
 
 ##Heatmap
 ```{r heatmap, fig.asp=1}
-net.cut <- net[rowSums(net)>0,]
-heatmaply(net.cut, scale="none", showticklabels = c(F,T), margins= c(0,NA,0,0),
+
+heatmaply(net, scale="none", showticklabels = c(F,T), margins= c(0,NA,0,0),
           scale_fill_gradient_fun = ggplot2::scale_fill_gradient(low = "white", high = "#000050", trans="log1p"),
           distfun=vegdist, 
           hclustfun=function(x) hclust(x, method="mcquitty"), 
           row_side_colors = data.frame(P=plants.majorpoll[rowSums(net)>0]),
           row_side_palette=function(n) pcols, 
-          col_side_colors=data.frame(PollinatorOrder=polls.order.all), 
+          col_side_colors=data.frame(PollinatorGroup=polls.class), 
           col_side_palette=function(n) pcols.all)
 ```
 

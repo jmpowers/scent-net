@@ -1,0 +1,6 @@
+Manifest file for edi.512.1.zip created on Tue Nov 28 22:40:12 UTC 2023
+caradonna_rmbl_flowering_phenology_data_EDI.csv (527792 bytes)
+caradonna_rmbl_interaction_networks_data_EDI.csv (713106 bytes)
+edi.512.1.xml (447911 bytes)
+edi.512.1.txt (230208 bytes)
+edi.512.1.report.xml (52931 bytes)

@@ -24,6 +24,7 @@ library(knitr)
 #install.packages("remotes")
 #remotes::install_github("jmpowers/bouquet", build_vignettes = TRUE)
 library(bouquet)
+library(googlesheets4)
 knitr::opts_chunk$set(comment="", cache=T, warning=F, message=F, 
                       fig.path = "plots/", dev="svglite", dev.args=list(fix_text_size=FALSE), fig.height=8, fig.width=10)
 ```
@@ -44,7 +45,7 @@ vol.all[,1] <- NULL
 # Metadata
 
 ```{r metadata}
-metadata <- read_csv("data/BIGMETADATA2.csv") %>% 
+metadata <- read_sheet("1eWGlx8VxCdd43avSOE0TjBkN2NVVOIgX26rqDgll3WY", sheet="BIGMETADATA2plusAmanda") %>% 
   mutate(equil=pump-bag, pumping=end-pump, year=factor(year), 
          sp = na_if(sp,"Air"), species=na_if(species,"Ambient")) %>% 
   left_join(vol.data %>% count(Filename, name="peaks")) %>% 
