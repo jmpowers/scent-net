@@ -30,10 +30,14 @@ knitr::opts_chunk$set(comment="", cache=T, warning=F, message=F,
 ```
 
 ```{r read_scents}
+#Shimadzu output downloaded from Lucas' "Paul's Meadow" folder https://drive.google.com/drive/u/0/folders/1Y0SJuwD9-S24C0l_k-BBUw8aEi5KFS3C
 #DryMeadow = Barth2017 (32) + Barth2018 (92) + Paul's Meadow 2019 (130) =  254 samples
 #BigBoysDontCry: first 67 meadow samples in 2019, only through July 3
+#BarthRMBL2018: all of Amanda's samples from 2018, including the 82 that Lucas analyzed in "DryMeadow"
 # source("read_shimadzu.R")
-# vol.data <- read.shimadzu("~/Downloads/paul/DryMeadowTotal.txt")
+# vol.data1 <- read.shimadzu("~/Downloads/paul/DryMeadowTotal.txt")
+# vol.data2 <- read.shimadzu("~/Downloads/paul/BarthRMBL2018.txt")
+# vol.data <- bind_rows(vol.data1, vol.data2[!vol.data2$Filename %in% intersect(unique(vol.data1$Filename), unique(vol.data2$Filename)),])
 # save(vol.data, file="data/drymeadow_data.rda")
 
 load("data/drymeadow_data.rda")
