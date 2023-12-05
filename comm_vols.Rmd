@@ -54,10 +54,13 @@ metadata <- read_sheet("1eWGlx8VxCdd43avSOE0TjBkN2NVVOIgX26rqDgll3WY", sheet="BI
          sp = na_if(sp,"Air"), species=na_if(species,"Ambient")) %>% 
   left_join(vol.data %>% count(Filename, name="peaks")) %>% 
   left_join(enframe(rowSums(vol.all), name="Filename", value="unfiltered_area")) %>% 
+  filter(Filename!="#N/A") %>% #TODO investigate 5 metadata entries with no chromatogram file
   load_metadata(date="date", sample="Filename", group = "sp", type="type", amount = "biomass")
 spnames <- distinct(metadata, sp, species) %>% drop_na(species) %>% deframe()
 
 count(metadata, type, year) %>% kable(caption="samples of each type")
+metadata %>% drop_na(sp) %>% count(year, sp) %>% count(year) %>% kable(caption="species per year")
+metadata %>% drop_na(sp) %>% count(sp) %>% count() %>% kable(caption="total species")
 
 ggplot(count(drop_na(metadata, sp), sp,year), aes(x=year, y=sp, fill=n, label=n)) + 
   geom_tile() + geom_text() + scale_fill_viridis_c() #NA = GC blank or ambient
@@ -84,7 +87,8 @@ ggplot(metadata, aes(x=peaks, y=unfiltered_area, color=year, shape=type, linetyp
 
 ```{r filtering}
 longdata <- load_longdata(vol.data, sample = "Filename", RT = "Ret.Time", 
-                          name = "Name", area = "Area", match = "SI", maxmatch=100)
+                          name = "Name", area = "Area", match = "SI", maxmatch=100) %>% 
+  filter(sample %in% metadata$sample) %>% droplevels() #drop standards and 3 duplicate (slightly renamed) files
 sampletable <- make_sampletable(longdata, metadata)
 
 chemtable <- make_chemtable(longdata, metadata) %>% 
@@ -109,9 +113,11 @@ plot_filters(chemtable, option="prop")
 vol <- prune_sampletable(sampletable, chemtable, metadata)
 files_exclude <- c("") #TODO any to exclude?
 vol <- vol[!(rownames(vol) %in% files_exclude) ,]
-meta <- metadata[metadata$type == "floral" & !(metadata$sample %in% files_exclude),] %>% droplevels()
-#TODO need pumping times and biomass for 2017+2018 to standardize
-#vol <- vol / as.numeric(meta$equil + meta$pumping)/3600 / meta$amount
+meta <- metadata[metadata$type == "floral" & !(metadata$sample %in% files_exclude),] %>% droplevels() %>% 
+  mutate(equil = replace_na(equil, as.difftime("00:40:00")), #fill in missing times with defaults
+         pumping = replace_na(pumping, as.difftime("00:20:00")))
+#TODO need biomass for all samples to standardize
+vol <- vol / as.numeric(meta$equil + meta$pumping)/3600# / meta$amount
 ```
 
 # Heatmap

@@ -11,7 +11,7 @@
 
 <meta name="author" content="Janelle Bohey, John Powers, Lucas Sharrett, Amanda Barth" />
 
-<meta name="date" content="2023-05-05" />
+<meta name="date" content="2023-12-04" />
 
 <title>Dry meadow volatiles</title>
 
@@ -253,7 +253,7 @@ div.tocify {
 <h1 class="title toc-ignore">Dry meadow volatiles</h1>
 <h4 class="author">Janelle Bohey, John Powers, Lucas Sharrett, Amanda
 Barth</h4>
-<h4 class="date">2023-05-05</h4>
+<h4 class="date">2023-12-04</h4>
 
 </div>
 
@@ -263,10 +263,14 @@ Barth</h4>
 img{ max-width:200%; height: auto; }
 td, th { padding : 6px }
 </style>
-<pre class="r"><code>#DryMeadow = Barth2017 (32) + Barth2018 (92) + Paul&#39;s Meadow 2019 (130) =  254 samples
+<pre class="r"><code>#Shimadzu output downloaded from Lucas&#39; &quot;Paul&#39;s Meadow&quot; folder https://drive.google.com/drive/u/0/folders/1Y0SJuwD9-S24C0l_k-BBUw8aEi5KFS3C
+#DryMeadow = Barth2017 (32) + Barth2018 (92) + Paul&#39;s Meadow 2019 (130) =  254 samples
 #BigBoysDontCry: first 67 meadow samples in 2019, only through July 3
+#BarthRMBL2018: all of Amanda&#39;s samples from 2018, including the 82 that Lucas analyzed in &quot;DryMeadow&quot;
 # source(&quot;read_shimadzu.R&quot;)
-# vol.data &lt;- read.shimadzu(&quot;~/Downloads/paul/DryMeadowTotal.txt&quot;)
+# vol.data1 &lt;- read.shimadzu(&quot;~/Downloads/paul/DryMeadowTotal.txt&quot;)
+# vol.data2 &lt;- read.shimadzu(&quot;~/Downloads/paul/BarthRMBL2018.txt&quot;)
+# vol.data &lt;- bind_rows(vol.data1, vol.data2[!vol.data2$Filename %in% intersect(unique(vol.data1$Filename), unique(vol.data2$Filename)),])
 # save(vol.data, file=&quot;data/drymeadow_data.rda&quot;)
 
 load(&quot;data/drymeadow_data.rda&quot;)
@@ -275,11 +279,12 @@ rownames(vol.all) &lt;- vol.all[,1]
 vol.all[,1] &lt;- NULL</code></pre>
 <div id="metadata" class="section level1">
 <h1>Metadata</h1>
-<pre class="r"><code>metadata &lt;- read_csv(&quot;data/BIGMETADATA2.csv&quot;) %&gt;% 
+<pre class="r"><code>metadata &lt;- read_sheet(&quot;1eWGlx8VxCdd43avSOE0TjBkN2NVVOIgX26rqDgll3WY&quot;, sheet=&quot;BIGMETADATA2plusAmanda&quot;) %&gt;% 
   mutate(equil=pump-bag, pumping=end-pump, year=factor(year), 
          sp = na_if(sp,&quot;Air&quot;), species=na_if(species,&quot;Ambient&quot;)) %&gt;% 
   left_join(vol.data %&gt;% count(Filename, name=&quot;peaks&quot;)) %&gt;% 
   left_join(enframe(rowSums(vol.all), name=&quot;Filename&quot;, value=&quot;unfiltered_area&quot;)) %&gt;% 
+  filter(Filename!=&quot;#N/A&quot;) %&gt;% #TODO investigate 5 metadata entries with no chromatogram file
   load_metadata(date=&quot;date&quot;, sample=&quot;Filename&quot;, group = &quot;sp&quot;, type=&quot;type&quot;, amount = &quot;biomass&quot;)
 spnames &lt;- distinct(metadata, sp, species) %&gt;% drop_na(species) %&gt;% deframe()
 
@@ -327,12 +332,50 @@ count(metadata, type, year) %&gt;% kable(caption=&quot;samples of each type&quot
 <tr class="odd">
 <td align="left">floral</td>
 <td align="left">2018</td>
-<td align="right">58</td>
+<td align="right">150</td>
 </tr>
 <tr class="even">
 <td align="left">floral</td>
 <td align="left">2019</td>
 <td align="right">86</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>metadata %&gt;% drop_na(sp) %&gt;% count(year, sp) %&gt;% count(year) %&gt;% kable(caption=&quot;species per year&quot;)</code></pre>
+<table>
+<caption>species per year</caption>
+<thead>
+<tr class="header">
+<th align="left">year</th>
+<th align="right">n</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">2017</td>
+<td align="right">6</td>
+</tr>
+<tr class="even">
+<td align="left">2018</td>
+<td align="right">39</td>
+</tr>
+<tr class="odd">
+<td align="left">2019</td>
+<td align="right">28</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>metadata %&gt;% drop_na(sp) %&gt;% count(sp) %&gt;% count() %&gt;% kable(caption=&quot;total species&quot;)</code></pre>
+<table>
+<caption>total species</caption>
+<thead>
+<tr class="header">
+<th align="right">n</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">49</td>
 </tr>
 </tbody>
 </table>
@@ -355,7 +398,7 @@ count(metadata, type, year) %&gt;% kable(caption=&quot;samples of each type&quot
 </tr>
 <tr class="even">
 <td align="left">2018</td>
-<td align="right">18</td>
+<td align="right">39</td>
 </tr>
 <tr class="odd">
 <td align="left">2019</td>
@@ -375,15 +418,39 @@ kable(sp.years, caption=&quot;years of sampling for each species&quot;)</code></
 </thead>
 <tbody>
 <tr class="odd">
+<td align="left">AgAu</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">AgGl</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
 <td align="left">AmAl</td>
 <td align="right">1</td>
 </tr>
 <tr class="even">
-<td align="left">AqCa</td>
+<td align="left">AnSe</td>
 <td align="right">1</td>
 </tr>
 <tr class="odd">
+<td align="left">AqCa</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
 <td align="left">DeBa</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">DeNu</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">ErFl</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">ErSp</td>
 <td align="right">1</td>
 </tr>
 <tr class="even">
@@ -391,11 +458,27 @@ kable(sp.years, caption=&quot;years of sampling for each species&quot;)</code></
 <td align="right">1</td>
 </tr>
 <tr class="odd">
-<td align="left">FrVi</td>
+<td align="left">GeAl</td>
 <td align="right">1</td>
 </tr>
 <tr class="even">
+<td align="left">GePa</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">HeMu</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">HeQu</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
 <td align="left">HyCa</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">IpAg</td>
 <td align="right">1</td>
 </tr>
 <tr class="odd">
@@ -407,43 +490,83 @@ kable(sp.years, caption=&quot;years of sampling for each species&quot;)</code></
 <td align="right">1</td>
 </tr>
 <tr class="odd">
+<td align="left">LiLe</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
 <td align="left">LoDi</td>
 <td align="right">1</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">MaRe</td>
 <td align="right">1</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">MeFu</td>
 <td align="right">1</td>
 </tr>
+<tr class="odd">
+<td align="left">PoGr</td>
+<td align="right">1</td>
+</tr>
 <tr class="even">
-<td align="left">ViPr</td>
+<td align="left">PsMo</td>
 <td align="right">1</td>
 </tr>
 <tr class="odd">
+<td align="left">RaIn</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">RoWo</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">SeSe</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">SeWo</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">SoMu</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">TaOf</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">ViPr</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
 <td align="left">BoSt</td>
 <td align="right">2</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">CaSu</td>
 <td align="right">2</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">ClLa</td>
 <td align="right">2</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">DrAu</td>
 <td align="right">2</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">ErGr</td>
 <td align="right">2</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">ErUm</td>
+<td align="right">2</td>
+</tr>
+<tr class="even">
+<td align="left">FrVi</td>
 <td align="right">2</td>
 </tr>
 <tr class="odd">
@@ -509,7 +632,8 @@ kable(sp.years, caption=&quot;years of sampling for each species&quot;)</code></
 <div id="filtering" class="section level1">
 <h1>Filtering</h1>
 <pre class="r"><code>longdata &lt;- load_longdata(vol.data, sample = &quot;Filename&quot;, RT = &quot;Ret.Time&quot;, 
-                          name = &quot;Name&quot;, area = &quot;Area&quot;, match = &quot;SI&quot;, maxmatch=100)
+                          name = &quot;Name&quot;, area = &quot;Area&quot;, match = &quot;SI&quot;, maxmatch=100) %&gt;% 
+  filter(sample %in% metadata$sample) %&gt;% droplevels() #drop standards and 3 duplicate (slightly renamed) files
 sampletable &lt;- make_sampletable(longdata, metadata)
 
 chemtable &lt;- make_chemtable(longdata, metadata) %&gt;% 
@@ -537,9 +661,11 @@ plot_filters(chemtable, option=&quot;rarity&quot;)</code></pre>
 <pre class="r"><code>vol &lt;- prune_sampletable(sampletable, chemtable, metadata)
 files_exclude &lt;- c(&quot;&quot;) #TODO any to exclude?
 vol &lt;- vol[!(rownames(vol) %in% files_exclude) ,]
-meta &lt;- metadata[metadata$type == &quot;floral&quot; &amp; !(metadata$sample %in% files_exclude),] %&gt;% droplevels()
-#TODO need pumping times and biomass for 2017+2018 to standardize
-#vol &lt;- vol / as.numeric(meta$equil + meta$pumping)/3600 / meta$amount</code></pre>
+meta &lt;- metadata[metadata$type == &quot;floral&quot; &amp; !(metadata$sample %in% files_exclude),] %&gt;% droplevels() %&gt;% 
+  mutate(equil = replace_na(equil, as.difftime(&quot;00:40:00&quot;)), #fill in missing times with defaults
+         pumping = replace_na(pumping, as.difftime(&quot;00:20:00&quot;)))
+#TODO need biomass for all samples to standardize
+vol &lt;- vol / as.numeric(meta$equil + meta$pumping)/3600# / meta$amount</code></pre>
 </div>
 <div id="heatmap" class="section level1">
 <h1>Heatmap</h1>
