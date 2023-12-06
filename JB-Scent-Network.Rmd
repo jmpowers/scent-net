@@ -28,11 +28,11 @@ library(heatmaply)
 
 ```
 
-
+#load network
 ```{r data}
 #load network
 setwd("~/Desktop/Scent-Net")
-net.long <- read_csv("data/caradonna_rmbl_interaction_networks_data_EDI.csv", na=c("","na", "NA")) %>%    
+net.long <- read_sheet("1plhxbVh5IQLNVMazqO4OvfM3X6vbll_Y6BTMJ94bkI4", na=c("","na", "NA")) %>%    
       mutate(pollinator_group= if_else(pollinator=="papilio_gothica", "butterfly", pollinator_group)) %>% #fix papilio_gothica from bee -> butterfly
       mutate(plant= recode(plant,senecio_tall_int = "senecio_integerrimus", agoceris_glauca = "agoseris_glauca", agoceris_aurantiaca="agoseris_aurantiaca", hydrophyllum_fendeleri="hydrophyllum_fendleri"))
 
@@ -46,6 +46,27 @@ plants<-rownames(net)
 snet <- sortweb(net) #sort by row & column totals; sorted rows by rowsums and columns by column sums. Biggest numbers in top left of matrix
 
 
+
+```
+
+#load scent 
+```{r}
+#Go to comm_vols for code to make scent.net
+#Loads in vol, filters with bouquet, takes mean of each voc for each species 
+scent.net <- read_csv("data/Volatiles_by_species_mean.csv") %>%     column_to_rownames("species") %>% #species are now rownames
+    as.matrix() #network analysis likes matrix 
+
+```
+
+#match paul's plants with the plants we have vocs for
+```{r}
+scentplants<-rownames(scent.net) %>% tolower() %>%  str_replace(" ", "_")
+
+paulsplants <- plants
+
+#plants not in both datasets 
+setdiff(scentplants, paulsplants) #gives us bonus plants
+setdiff(paulsplants, scentplants) 
 
 ```
 
@@ -131,23 +152,20 @@ plotweb(sqrt(net), empty=F, text.rot=90, method="cca", col.high=pcols.all[polls.
 
 #Network topography
 ```{r topo}
+#computes network statistics (like nestedness)
 networklevel(net)
 ```
 
 # Scent network
 ##Heatmap
 ```{r heatmap.s, fig.asp=1}
-heatmaply(sqrt(scent.net), scale="none", showticklabels = c(F,T), margins= c(0,NA,0,0),
-          scale_fill_gradient_fun = ggplot2::scale_fill_gradient(low = "white", high = "#000050", trans="log1p"),
-          distfun=vegdist, 
-          hclustfun=function(x) hclust(x, method="mcquitty"), 
-          row_side_colors = data.frame(P=plants.majorpoll),
-          row_side_palette=function(n) pcols)
+#get heatmap code from NEXP 
 ```
 
-##Web plot
+##Web plot VOCs-Plants
 ```{r webplot.s}
 #interaction web plot
+#plant-voc bipartite
 plotweb(sqrt(scent.net), text.rot=90, method="cca", col.high=pal[2], bor.col.high=pal[2], col.low=pcols[plants.majorpoll], bor.col.low=pcols[plants.majorpoll], col.interaction=pal[5], bor.col.interaction=pal[5])
 ```
 
@@ -155,10 +173,11 @@ plotweb(sqrt(scent.net), text.rot=90, method="cca", col.high=pal[2], bor.col.hig
 ##NMDS
 ```{r nmds}
 scent.mds <- metaMDS(sqrt(scent.net), autotransform = F, trace=F)
-#scent.op <- ordiplot(scent.mds, type="n")
-#points(scent.op, what="species", pch=3, col="grey50")
-#points(scent.op, what="sites", cex=1.5, pch=19, col=pcols[plants.majorpoll])
-#text(scent.op, what="sites", cex=0.8, col=pcols[plants.majorpoll])
+scent.op <- ordiplot(scent.mds, type="n")
+points(scent.op, what="species", pch=3, col="grey50")
+points(scent.op, what="sites", cex=1.5, pch=19, col=pcols[plants.majorpoll])
+text(scent.op, what="sites", cex=0.8, col=pcols[plants.majorpoll])
+
 ```
 
 ##Phylochemospace
@@ -224,10 +243,15 @@ par(mar=c(0,0,0,0))
 barplot(t(decostand(scent.net, method="tot")), col=ccol, names.arg=rep("",nrow(scent.net)), horiz=TRUE) 
 ```
 
+
 ##Indicator compounds
 ```{r indicators}
 library(indicspecies)
-mp <- multipatt(as.data.frame(scent.net), plants.majorpoll, control=how(nperm=999))
+scent.net.cut <- scent.net[rownames(scent.net)%in% paulsplants, ]
+
+plants.majorpoll.cut <- plants.majorpoll[rownames(scent.net.cut)]
+  
+mp <- multipatt(as.data.frame(scent.net[rownames(scent.net)%in% paulsplants],), plants.majorpoll[rownames(scent.net ], control=how(nperm=999))
 summary(mp)
 ```
 
