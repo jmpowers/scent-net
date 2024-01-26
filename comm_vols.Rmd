@@ -61,6 +61,10 @@ metadata <- read_sheet("1eWGlx8VxCdd43avSOE0TjBkN2NVVOIgX26rqDgll3WY", sheet="BI
   load_metadata(date="date", sample="Filename", group = "sp", type="type", amount = "biomass")
 spnames <- distinct(metadata, sp, species) %>% drop_na(species) %>% deframe()
 
+```
+
+#Figures of metadata
+```{r}
 count(metadata, type, year) %>% kable(caption="samples of each type")
 metadata %>% drop_na(sp) %>% count(year, sp) %>% count(year) %>% kable(caption="species per year")
 metadata %>% drop_na(sp) %>% count(sp) %>% count() %>% kable(caption="total species")
@@ -112,10 +116,10 @@ chemtable$filter_final <- with(chemtable, filter_RT == "OK" & filter_match =="OK
                                  filtercount.anyspecies == TRUE & filter_area == "OK" & 
                                  filter_ambient_ratio == "OK"  &  filter_contaminant == "OK") 
 
-plot_filters(chemtable, option="rarity")
-plot_filters(chemtable, option="ambient")
-plot_filters(chemtable, option="volcano")
-plot_filters(chemtable, option="prop")
+#plot_filters(chemtable, option="rarity")
+#plot_filters(chemtable, option="ambient")
+#plot_filters(chemtable, option="volcano")
+#plot_filters(chemtable, option="prop")
 
 count(chemtable, filtercount.anyspecies)
 
@@ -126,7 +130,7 @@ meta <- metadata[metadata$type == "floral" & !(metadata$sample %in% files_exclud
   mutate(equil = replace_na(equil, as.difftime("00:40:00")), #fill in missing times with defaults
          pumping = replace_na(pumping, as.difftime("00:20:00")))
 #TODO need biomass for all samples to standardize
-vol <- vol / as.numeric(meta$equil + meta$pumping)/3600# / meta$amount
+vol <- vol / as.numeric(meta$equil + meta$pumping, units="hours")# / meta$amount
 ```
 
 #summarise by species

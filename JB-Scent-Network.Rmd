@@ -53,14 +53,14 @@ snet <- sortweb(net) #sort by row & column totals; sorted rows by rowsums and co
 ```{r}
 #Go to comm_vols for code to make scent.net
 #Loads in vol, filters with bouquet, takes mean of each voc for each species 
-scent.net <- read_csv("data/Volatiles_by_species_mean.csv") %>%     column_to_rownames("species") %>% #species are now rownames
+scent.net <- read_csv("data/Volatiles_by_species_mean.csv") %>% column_to_rownames("species") %>% #species are now rownames
     as.matrix() #network analysis likes matrix 
 
 ```
 
-#match paul's plants with the plants we have vocs for
+##match paul's plants with the plants we have vocs for
 ```{r}
-scentplants<-rownames(scent.net) %>% tolower() %>%  str_replace(" ", "_")
+scentplants<-rownames(scent.net) #%>% tolower() %>%  str_replace(" ", "_")
 
 paulsplants <- plants
 
@@ -68,23 +68,7 @@ paulsplants <- plants
 setdiff(scentplants, paulsplants) #gives us bonus plants
 setdiff(paulsplants, scentplants) 
 
-```
-
-
-# Plant phylogeny
-```{r pphylo}
-#plants.class <- classification(str_replace(plants,"_"," "), db="gbif")
-#save(plants.class, file="data/plantsclass.Rdata")
-load("data/plantsclass.Rdata")
-#phylogeny based on plant class
-plants.classtree <- class2tree(plants.class) #taxonomic tree
-plot(plants.classtree)
-#make phylogeny from Zanne 2014 (giant plant phylogeny)
-plants.tree <-phylomatic(taxa=names(plants.class), get = 'POST', storedtree="zanne2014") 
-plants.tree$tip.label[order(plants.tree$tip.label)] <- plants
-par(mar=c(0,0,0,0))
-cp <- cophylo(plants.tree, plants.classtree$phylo)
-plot(cp)
+bothplants <- intersect(scentplants, paulsplants) #plants found in amanda and paul data
 ```
 
 
@@ -92,24 +76,24 @@ plot(cp)
 ```{r }
 polls.count <-count(net.long, pollinator_group,pollinator_family, pollinator) #counting number of rows for each pollinator
 polls.class <- tibble(pollinator=polls) %>%  left_join(polls.count) %>% pull(pollinator_group)
+polls.class.dataframe <- tibble(pollinator=polls) %>%  left_join(polls.count)
 polls.family <- tibble(pollinator=polls) %>%  left_join(polls.count) %>% pull(pollinator_family)
 polls.order.all <- polls.class
 
-net.grp <- aggregate(.~ polls.class, as.data.frame(t(net)), sum) #lump network by pollinator class; plants columns, pollinators rows
-rownames(net.grp) <- net.grp[,1] #make plants rows, pollinators column names
-net.grp[,1] <- NULL
-net.grp <- as.matrix(t(net.grp)) #transposes matrix
+#net.grp.all has all of pauls 45 plant species 
+#net.grp only has plant species found in Amanda's and paul's datasets
+net.grp.all <- aggregate(.~ polls.class, as.data.frame(t(net)), sum) #lump network by pollinator class; plants columns, pollinators rows
+rownames(net.grp.all) <- net.grp.all[,1] #make plants rows, pollinators column names
+net.grp.all[,1] <- NULL
+net.grp.all <- as.matrix(t(net.grp.all)) #transposes matrix
+net.grp<- net.grp.all[bothplants,] 
+
+net.cut <- net[bothplants,]
 
 ```
 
 
 # Plant-pollinator network
-##Cophylogeny
-```{r cophylo}
-mnet.lump <- melt(net.lump)
-mnet.lump <- mnet.lump[mnet.lump$value>0,]
-cophyloplot(plants.tree, polls.classtree$phylo, mnet.lump[,1:2], lwd=sqrt(mnet.lump[,3])/4, show.tip.label=F,  col='steelblue', length.line=0, gap=-20, space=60)
-```
 
 ##Pollinator groups
 ```{r pollgroups}
@@ -153,7 +137,9 @@ plotweb(sqrt(net), empty=F, text.rot=90, method="cca", col.high=pcols.all[polls.
 #Network topography
 ```{r topo}
 #computes network statistics (like nestedness)
-networklevel(net)
+#networkstats <- networklevel(net)
+write_csv(enframe(networkstats), "data/p-p network stats.csv")
+
 ```
 
 # Scent network
@@ -172,7 +158,7 @@ plotweb(sqrt(scent.net), text.rot=90, method="cca", col.high=pal[2], bor.col.hig
 #Plant-scent-pollinator network
 ##NMDS
 ```{r nmds}
-scent.mds <- metaMDS(sqrt(scent.net), autotransform = F, trace=F)
+scent.mds <- metaMDS(sqrt(scent.net.cut), autotransform = F, trace=F)
 scent.op <- ordiplot(scent.mds, type="n")
 points(scent.op, what="species", pch=3, col="grey50")
 points(scent.op, what="sites", cex=1.5, pch=19, col=pcols[plants.majorpoll])
@@ -180,69 +166,13 @@ text(scent.op, what="sites", cex=0.8, col=pcols[plants.majorpoll])
 
 ```
 
-##Phylochemospace
-```{r phylochemo, cache=FALSE}
-scent.mds.taxa <- scent.mds$points
-rownames(scent.mds.taxa) <- sort(plants.tree$tip.label)
-rownames(scent.mds.taxa) <- gsub(" ", "_", rownames(scent.mds.taxa), fixed=T)
-plants.tree$tip.label <- gsub(" ", "_", plants.tree$tip.label, fixed=T)
+#cap
+```{r}
+scent.cap <- capscale(sqrt(scent.net.cut)~plants.majorpoll)
+anova(scent.cap)
 
-#plants.tree$phylo$edge.length <- plants.tree$phylo$edge.length+0.00001
-
-#Do generalists cluster?
-plants.numlinks  <- rowSums(decostand(net.lump, "pa"))
-tip.pcols <- setNames(colorRampPalette(c("white", "darkblue"))(67)[plants.numlinks+1], 
-                      sort(plants.tree$tip.label))
-node.pcols<- setNames(c(tip.pcols[plants.tree$tip.label], rep("black",plants.tree$Nnode)),
-                      1:(length(plants.tree$tip)+plants.tree$Nnode))
-
-phylomorphospace(plants.tree, scent.mds.taxa, control=list(col.node=node.pcols), node.size=c(0,2), label="off", lwd=1)
-text(scent.mds.taxa[,1], scent.mds.taxa[,2], rownames(scent.mds.taxa), cex=0.8, offset=0.5, xpd=T, col=tip.pcols)
-
-#Do plant major pollinators cluster?
-tip.pcols <- setNames(pcols[plants.majorpoll], 
-                      sort(plants.tree$tip.label))
-node.pcols<- setNames(c(tip.pcols[plants.tree$tip.label], rep("black",plants.tree$Nnode)),
-                      1:(length(plants.tree$tip)+plants.tree$Nnode))
-
-phylomorphospace(plants.tree, scent.mds.taxa, control=list(col.node=node.pcols), node.size=c(0,2), label="off", lwd=1)
-text(scent.mds.taxa[,1], scent.mds.taxa[,2], rownames(scent.mds.taxa), cex=0.8, offset=0.5, xpd=T, col=tip.pcols)
-
-library(vegan3d)
-orditree3d(scent.mds.taxa, as.hclust(force.ultrametric(multi2di(plants.tree))), lwd=2, pch=19, col=tip.pcols)
-
-phenogram(plants.tree, setNames(plants.numlinks,sort(plants.tree$tip.label)))
+plot(scent.cap, type="text")
 ```
-
-
-```{r phylochemoanimate, eval=FALSE}
-png(file="ppm-%04d.png",width=600,height=600,res=120)
-par(mar=c(2.1,2.1,1.1,1.1))
-project.phylomorphospace(tree=plants.tree, X=scent.mds.taxa, xlab="", ylab="", node.size=c(0,0), lwd=1, direction="to", nsteps=100, fsize=0.6)
-dev.off()
-system("convert -delay 10 -loop 2 *.png phylochemo.gif")
-file.remove(list.files(pattern=".png"))
-```
-
-
-##Phylogeny scent bar chart
-```{r barchart}
-ccol = sample(rainbow(ncol(scent.net)))
-par(mfrow=c(1,2))
-par(mar=c(0.8,0,0.8,0))
-plot(plants.tree, cex=1, tip.color = tip.pcols)
-par(mar=c(0,0,0,0))
-barplot(t(scent.net), col=ccol, names.arg=rep("",nrow(scent.net)), horiz=TRUE) 
-```
-
-```{r barchart2}
-par(mfrow=c(1,2))
-par(mar=c(0.8,0,0.8,0))
-plot(plants.tree, cex=1, tip.color = tip.pcols)
-par(mar=c(0,0,0,0))
-barplot(t(decostand(scent.net, method="tot")), col=ccol, names.arg=rep("",nrow(scent.net)), horiz=TRUE) 
-```
-
 
 ##Indicator compounds
 ```{r indicators}
@@ -251,77 +181,77 @@ scent.net.cut <- scent.net[rownames(scent.net)%in% paulsplants, ]
 
 plants.majorpoll.cut <- plants.majorpoll[rownames(scent.net.cut)]
   
-mp <- multipatt(as.data.frame(scent.net[rownames(scent.net)%in% paulsplants],), plants.majorpoll[rownames(scent.net ], control=how(nperm=999))
+mp <- multipatt(as.data.frame(scent.net.cut), plants.majorpoll.cut, control=how(nperm=999))
 summary(mp)
-```
-
-
-```{r paco}
-library(paco)
-
-# start the paco procedure
-poll_phy <- polls.classtree$phylo
-pla_phy <- as.phylo(hclust(vegdist(scent.net), "mcquitty"))
-int <- net.lump
-H <- cophenetic(polls.classtree$phylo)
-P <- cophenetic(as.phylo(hclust(vegdist(scent.net), "mcquitty")))
-D <- prepare_paco_data(H, P, net.lump)
-D <- add_pcoord(D, correction='cailliez')
-# now we are ready for cophylogenetic analysis
-#D <- PACo(D, nperm=1000, seed=13, method='quasiswap', symmetric=TRUE)
-#save(D, file="D.Rdata")
-load("D.Rdata")
-# and to investigate the contribution of individual links
-res <- residuals_paco(D$proc)
-
-# to visualise this we use the ape function cophyloplot weighted by interaction contribution
-# first we must make a list out of the interaction matrix
-assoc <- data.frame(pol=rownames(net.lump)[which(net.lump>0, arr.ind=TRUE)[,'row']], pla=colnames(net.lump)[which(net.lump>0, arr.ind=TRUE)[,'col']])
-# to weight the interactions we use the cophylogenetic contribution transformed to best show
-# the differences graphically
-weight <- (res^-2)/50
-
-mnet.lump <- melt(net.lump) #replaces assoc
-mnet.lump <- mnet.lump[mnet.lump$value>0,]
-#cophylo with interaction strength
-cophyloplot(pla_phy, poll_phy, mnet.lump[,1:2], lwd=sqrt(mnet.lump[,3])/4, show.tip.label=F,  col='steelblue', length.line=0, gap=-20, space=60)
-#cophylo with residuals
-cophyloplot(pla_phy, poll_phy, mnet.lump[,1:2], lwd=weight/8, show.tip.label=F, col='steelblue', length.line=0, gap=-20, space=60)
 ```
 
 
 #Do generalist plants have higher diversity of scent compounds?
 ```{r generalists}
-plants.numlinks  <- rowSums(decostand(net.lump, "pa"))
-polls.classtree <- compute.brlen(polls.classtree$phylo,1)
-library(picante)
-plants.pdlinks   <- pd(net.lump, polls.classtree)$PD
-plants.numcompounds <- rowSums(decostand(scent.net, "pa"))
-plants.sumcompounds <- rowSums(scent.net)
-plants.shannoncompounds <- diversity(scent.net, index="shannon")
-plants.shannonlinks <- diversity(net.lump, index="shannon")
+plants.numlinks  <- rowSums(decostand(net.grp, "pa"))
+#polls.classtree <- compute.brlen(polls.classtree$phylo,1)
+#library(picante)
+#plants.pdlinks   <- pd(net.lump, polls.classtree)$PD
+plants.numcompounds <- rowSums(decostand(scent.net.cut, "pa"))
+plants.sumcompounds <- rowSums(scent.net.cut)
+plants.shannoncompounds <- diversity(scent.net.cut, index="shannon")
+plants.shannonlinks <- diversity(net.grp, index="shannon")
 
-plot(plants.numcompounds~plants.numlinks)
+scent.diversity <- tibble(numlinks=plants.numlinks, numcompounds=plants.numcompounds, sumcompounds=plants.sumcompounds, shannoncompounds=plants.shannoncompounds, shannonlinks=plants.shannonlinks)
 
-plot(plants.numcompounds~plants.pdlinks)
+ggplot(scent.diversity, aes(y=numcompounds, x=numlinks))+
+    geom_point()+ geom_smooth()
 
-plot(plants.shannoncompounds~plants.pdlinks)
+#plot(plants.numcompounds~plants.pdlinks)
 
-plot(plants.shannoncompounds~plants.shannonlinks)
+#plot(plants.shannoncompounds~plants.pdlinks)
 
-plot(sqrt(plants.sumcompounds)~plants.pdlinks)
+ggplot(scent.diversity, aes(y=shannoncompounds, x=shannonlinks))+
+    geom_point()+ geom_smooth()
 
-plot(plants.shannoncompounds~plants.majorpoll)
 
-plot(plants.numcompounds~plants.majorpoll)
+ggplot(scent.diversity, aes(y=shannoncompounds, x=plants.majorpoll.cut))+
+    geom_point()+ geom_smooth()
 
-plot(sqrt(plants.sumcompounds)~plants.majorpoll)
+ggplot(scent.diversity, aes(y=numcompounds, x=plants.majorpoll.cut))+
+    geom_point()+ geom_smooth()
 
-qplot(plants.pdlinks, plants.numcompounds) + geom_smooth(method="lm")
+ggplot(scent.diversity, aes(y=sumcompounds, x=plants.majorpoll.cut))+
+    geom_point()+ geom_smooth()
 
-summary(lm(plants.numcompounds[-9]~plants.pdlinks[-9]))
-
-data(phylocom)
-pd(phylocom$sample, phylocom$phylo)
 
 ```
+
+#VOC-pollinator network
+```{r}
+#interaction web plot
+#voc-pollinator bipartite
+
+#make dataframe with vocs and pollinators
+##change scent.net to long format
+plantcompoundemission <- scent.net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% pivot_longer(-plant, names_to = "compound", values_to = "emissions") %>% filter(emissions!=0)
+
+plantpollinatorvisits <- net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% pivot_longer(-plant, names_to = "pollinator", values_to = "visits")
+
+scentpollnet <- left_join(plantcompoundemission, plantpollinatorvisits) %>%  group_by(pollinator, compound) %>% summarise(visits=sum(visits)) %>%  pivot_wider(names_from = "compound", values_from = "visits") %>% column_to_rownames("pollinator") %>% as.matrix()
+
+scentpollnet.class <- tibble(pollinator=rownames(scentpollnet)) %>% left_join(polls.class.dataframe) %>% pull(pollinator_group)
+
+#plot bipartite network
+plotweb(sqrt(scentpollnet), text.rot=90, method="cca", col.high=pal[2], bor.col.high=pal[2], col.low=pcols[scentpollnet.class], bor.col.low=pcols[scentpollnet.class], col.interaction=pal[5], bor.col.interaction=pal[5])
+```
+
+##Heatmap scent-net
+```{r heatmap, fig.asp=1}
+
+heatmaply(scentpollnet, scale="none", showticklabels = c(F,T), margins= c(0,NA,0,0),
+          scale_fill_gradient_fun = ggplot2::scale_fill_gradient(low = "white", high = "#000050", trans="log1p"),
+          distfun=vegdist, 
+          hclustfun=function(x) hclust(x, method="mcquitty"), 
+          #row_side_colors = data.frame(P=plants.majorpoll[rowSums(net)>0]),
+          #row_side_palette=function(n) pcols, 
+          row_side_colors=data.frame(PollinatorGroup=scentpollnet.class), 
+          row_side_palette=function(n) pcols.all)
+
+```
+

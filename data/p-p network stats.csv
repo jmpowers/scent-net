@@ -1,0 +1,49 @@
+name,value
+connectance,0.15029868578255676
+web asymmetry,0.34782608695652173
+links per species,4.557971014492754
+number of compartments,1
+compartment diversity,NA
+cluster coefficient,0.1111111111111111
+modularity Q,0.3545284192851212
+nestedness,7.922713193626271
+NODF,46.57761721120024
+weighted nestedness,0.702088690992652
+weighted NODF,30.8276423733593
+interaction strength asymmetry,0.06948072205310321
+specialisation asymmetry,0.018804615118589958
+linkage density,5.480959767680824
+weighted connectance,0.03971709976580307
+Fisher alpha,113.40284279961321
+Shannon diversity,3.869956867752457
+interaction evenness,0.46406467091176923
+Alatalo interaction evenness,0.23550019443470627
+H2,0.3981625719445267
+number.of.species.HL,93
+number.of.species.LL,45
+mean.number.of.shared.partners.HL,2.0572697522206638
+mean.number.of.shared.partners.LL,3.3464646464646464
+cluster.coefficient.HL,0.4075317210922722
+cluster.coefficient.LL,0.4398610271028339
+weighted.cluster.coefficient.HL,0.9261862085006985
+weighted.cluster.coefficient.LL,0.8580964869163424
+niche.overlap.HL,0.22039305358687583
+niche.overlap.LL,0.17226644134649868
+togetherness.HL,0.11760463960293219
+togetherness.LL,0.08041889757893458
+C.score.HL,0.4629755876312489
+C.score.LL,0.4895158442542317
+V.ratio.HL,6.930760443053692
+V.ratio.LL,20.178337292161522
+discrepancy.HL,253
+discrepancy.LL,245
+extinction.slope.HL,6.1320556108195365
+extinction.slope.LL,4.443810001888112
+robustness.HL,0.8220860578407961
+robustness.LL,0.775102555342898
+functional.complementarity.HL,24150.9553365923
+functional.complementarity.LL,16992.95136648284
+partner.diversity.HL,1.3698326028600343
+partner.diversity.LL,1.7388414096643257
+generality.HL,4.370644173422419
+vulnerability.LL,6.591275361939228
