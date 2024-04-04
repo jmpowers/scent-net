@@ -112,6 +112,8 @@ chemtable<- chemtable %>% rename(filtercount.floral="filter_count.floral") %>% r
 
 attr(chemtable, "min_ratio") <- 3
 
+#TODO: filter ambient ratio needs to change if you want to get rare VOCs 
+#add function that allows you to group ambient ratio by species so that VOCs are diluted
 chemtable$filter_final <- with(chemtable, filter_RT == "OK" & filter_match =="OK" & 
                                  filtercount.anyspecies == TRUE & filter_area == "OK" & 
                                  filter_ambient_ratio == "OK"  &  filter_contaminant == "OK") 

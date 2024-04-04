@@ -25,6 +25,7 @@ library(rotl)
 library(dendextend)
 library(tidyverse)
 library(heatmaply)
+library(googlesheets4)
 
 ```
 
@@ -32,6 +33,7 @@ library(heatmaply)
 ```{r data}
 #load network
 setwd("~/Desktop/Scent-Net")
+gs4_auth(email=TRUE)
 net.long <- read_sheet("1plhxbVh5IQLNVMazqO4OvfM3X6vbll_Y6BTMJ94bkI4", na=c("","na", "NA")) %>%    
       mutate(pollinator_group= if_else(pollinator=="papilio_gothica", "butterfly", pollinator_group)) %>% #fix papilio_gothica from bee -> butterfly
       mutate(plant= recode(plant,senecio_tall_int = "senecio_integerrimus", agoceris_glauca = "agoseris_glauca", agoceris_aurantiaca="agoseris_aurantiaca", hydrophyllum_fendeleri="hydrophyllum_fendleri"))
@@ -44,17 +46,19 @@ net <- as.matrix(t(net)) # turns it from dataframe to matrix bc packages like ma
 polls <- colnames(net) #now pollinators are column names
 plants<-rownames(net)
 snet <- sortweb(net) #sort by row & column totals; sorted rows by rowsums and columns by column sums. Biggest numbers in top left of matrix
-
-
-
 ```
 
 #load scent 
 ```{r}
+
 #Go to comm_vols for code to make scent.net
 #Loads in vol, filters with bouquet, takes mean of each voc for each species 
+#From comm_vols.Rmd
 scent.net <- read_csv("data/Volatiles_by_species_mean.csv") %>% column_to_rownames("species") %>% #species are now rownames
     as.matrix() #network analysis likes matrix 
+
+#loads in chemical class and gets rid of ?
+compound.class <-read_sheet("1BlDIOs4STe5ZTTPYE6qez1Nsey_ovEpe5m-SN8Q55gg", sheet= "chemical_class") %>% mutate(major_class= factor(major_class,levels=c("aliphatic", "monoterpene", "sesquiterpene", "nitrogenous", "sulfur", "benzenoid")) %>% fct_na_value_to_level("other")) %>% filter(compound_long!="Cyclohexane, 1,3,5-trimethyl-2-octadecyl-") #filtering this compound bc it has 0 interactions or emissions... 355 vs 354
 
 ```
 
@@ -108,10 +112,33 @@ pcols <- pcols.all[ levels(plants.majorpoll)]
 
 ```
 
+# Proportion of visits by pollinator group
+```{r}
+#gives % bee pollination for each plant species 
+plants.bees <- net.grp[,"bee"]/rowSums(net.grp)
+plot(sort(plants.bees))
+
+# Cap of plants.bees
+plant.bee.cap <- capscale(sqrt(scent.net.cut)~plants.bees)
+anova(plant.bee.cap)
+#p=0.348
+plot(plant.bee.cap, type="text")
+
+#gives % fly pollination for each plant species 
+plants.fly <- net.grp[,"fly"]/rowSums(net.grp)
+plot(sort(plants.fly))
+sort(plants.fly)
+```
+
+```{r}
+VOClist <- 
+```
+
 
 ##Heatmap
 ```{r heatmap, fig.asp=1}
 
+#pp_heatmap
 heatmaply(net, scale="none", showticklabels = c(F,T), margins= c(0,NA,0,0),
           scale_fill_gradient_fun = ggplot2::scale_fill_gradient(low = "white", high = "#000050", trans="log1p"),
           distfun=vegdist, 
@@ -129,23 +156,55 @@ visweb(net, type="nested", circles=T, boxes=F, circle.max=1.2)
 ```
 
 ##Web plot
-```{r webplot}
+```{r webplot, fig.height=15, fig.width=18}
+
+#fix names of species (plants rows, polls cols)
+net.nice.labels <- net
+rownames(net.nice.labels) <- str_to_sentence(str_replace_all(rownames(net), "_"," "))
+colnames(net.nice.labels) <- str_to_sentence(str_replace_all(colnames(net), "_"," "))
+
 #interaction web plot
-plotweb(sqrt(net), empty=F, text.rot=90, method="cca", col.high=pcols.all[polls.order.all], col.low=pcols[plants.majorpoll], col.interaction=pcols.all[polls.order.all], bor.col.interaction=pcols.all[polls.order.all], bor.col.high=pcols.all[polls.order.all], bor.col.low=pcols[plants.majorpoll])
+par(mar=c(0,0,0,0))
+plant.pollinator.network <- plotweb(sqrt(net.nice.labels), empty=F, text.rot=90, method="cca", col.high=pcols.all[polls.order.all], col.low=pcols[plants.majorpoll], col.interaction=pcols.all[polls.order.all], bor.col.interaction=pcols.all[polls.order.all], bor.col.high=pcols.all[polls.order.all], bor.col.low=pcols[plants.majorpoll])
+
+library(ggplot2)
+ggsave(plant.pollinator.network, file='plant.pollinator.networkplot.jpg', width=130, height=105, units= 'mm', dpi=300)
+
 ```
 
 #Network topography
 ```{r topo}
 #computes network statistics (like nestedness)
 #networkstats <- networklevel(net)
-write_csv(enframe(networkstats), "data/p-p network stats.csv")
+#write_csv(enframe(networkstats), "data/p-p network stats.csv")
 
+#computes network statistics for voc-pollinator network
+#scentnetworkstats<- networklevel(scentpollnet)
+#write_csv(enframe(scentnetworkstats), "data/scent network stats.csv")
+
+#the network statistics null model: TODO- broken
+#nullmmodel<-nullmodel(scentpollnet)
+#nullmodel.stats <- networklevel(nullmodel)
+#write_csv(enframe(nullmodel.stats), "data/scent network null model.csv")
 ```
 
 # Scent network
 ##Heatmap
 ```{r heatmap.s, fig.asp=1}
-#get heatmap code from NEXP 
+scent.net.cut <- scent.net[rownames(scent.net)%in% paulsplants, ] #cuts scent to match what paul has pollinator data for
+plants.majorpoll.cut <- plants.majorpoll[rownames(scent.net.cut)] #cuts Pauls data to match Amanda's
+
+plants.bees.cut<- plants.bees[rownames(scent.net.cut)]
+
+heatmaply(sqrt(scent.net.cut), scale="none", showticklabels = c(F,T), margins= c(0,NA,0,0),
+          scale_fill_gradient_fun = ggplot2::scale_fill_gradient(low = "white", high = "#000050", trans="log1p"),
+          distfun=vegdist, 
+          hclustfun=function(x) hclust(x, method="mcquitty"), 
+          row_side_colors = data.frame(major.polls=plants.majorpoll.cut),
+          row_side_palette=function(n) pcols )
+          #col_side_colors=data.frame(PollinatorGroup=scent.net), #put compound class here
+        #  col_side_palette=function(n) pcols.all)
+
 ```
 
 ##Web plot VOCs-Plants
@@ -153,31 +212,37 @@ write_csv(enframe(networkstats), "data/p-p network stats.csv")
 #interaction web plot
 #plant-voc bipartite
 plotweb(sqrt(scent.net), text.rot=90, method="cca", col.high=pal[2], bor.col.high=pal[2], col.low=pcols[plants.majorpoll], bor.col.low=pcols[plants.majorpoll], col.interaction=pal[5], bor.col.interaction=pal[5])
+
+
 ```
+
 
 #Plant-scent-pollinator network
 ##NMDS
 ```{r nmds}
+scent.net.cut <- scent.net[rownames(scent.net)%in% paulsplants, ]
 scent.mds <- metaMDS(sqrt(scent.net.cut), autotransform = F, trace=F)
 scent.op <- ordiplot(scent.mds, type="n")
 points(scent.op, what="species", pch=3, col="grey50")
 points(scent.op, what="sites", cex=1.5, pch=19, col=pcols[plants.majorpoll])
 text(scent.op, what="sites", cex=0.8, col=pcols[plants.majorpoll])
 
+#are scents of plants with different major pollinators different? no... 
+#do phylogeny, plants in same genus will cluster together need to account for phylogeny
 ```
 
 #cap
 ```{r}
-scent.cap <- capscale(sqrt(scent.net.cut)~plants.majorpoll)
+scent.cap <- capscale(sqrt(scent.net.cut)~plants.majorpoll.cut)
 anova(scent.cap)
 
 plot(scent.cap, type="text")
 ```
 
+
 ##Indicator compounds
 ```{r indicators}
 library(indicspecies)
-scent.net.cut <- scent.net[rownames(scent.net)%in% paulsplants, ]
 
 plants.majorpoll.cut <- plants.majorpoll[rownames(scent.net.cut)]
   
@@ -188,7 +253,7 @@ summary(mp)
 
 #Do generalist plants have higher diversity of scent compounds?
 ```{r generalists}
-plants.numlinks  <- rowSums(decostand(net.grp, "pa"))
+plants.numlinks  <- rowSums(decostand(net.cut, "pa"))
 #polls.classtree <- compute.brlen(polls.classtree$phylo,1)
 #library(picante)
 #plants.pdlinks   <- pd(net.lump, polls.classtree)$PD
@@ -201,6 +266,9 @@ scent.diversity <- tibble(numlinks=plants.numlinks, numcompounds=plants.numcompo
 
 ggplot(scent.diversity, aes(y=numcompounds, x=numlinks))+
     geom_point()+ geom_smooth()
+
+lm(numcompounds ~ numlinks, data=scent.diversity)
+anova(lm(numcompounds ~ numlinks, data=scent.diversity))
 
 #plot(plants.numcompounds~plants.pdlinks)
 
@@ -229,13 +297,28 @@ ggplot(scent.diversity, aes(y=sumcompounds, x=plants.majorpoll.cut))+
 
 #make dataframe with vocs and pollinators
 ##change scent.net to long format
-plantcompoundemission <- scent.net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% pivot_longer(-plant, names_to = "compound", values_to = "emissions") %>% filter(emissions!=0)
+plantcompoundemission1 <- scent.net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% #average peak area
+  pivot_longer(-plant, names_to = "compound", values_to = "emissions") %>% filter(emissions!=0)
 
+#write_csv(plantcompoundemission, "plantcompoundemissions.csv")
+ 
+#total number of visits to plant by each pollinator species
 plantpollinatorvisits <- net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% pivot_longer(-plant, names_to = "pollinator", values_to = "visits")
 
-scentpollnet <- left_join(plantcompoundemission, plantpollinatorvisits) %>%  group_by(pollinator, compound) %>% summarise(visits=sum(visits)) %>%  pivot_wider(names_from = "compound", values_from = "visits") %>% column_to_rownames("pollinator") %>% as.matrix()
+#TODO: 
+#total number of visits to each compound. Pollinators rows, compounds cols, values = number of visits
+scentpollnet <- left_join(plantcompoundemission, plantpollinatorvisits,relationship = "many-to-many") %>%  group_by(pollinator, compound) %>% summarise(visits=sum(visits)) %>%  pivot_wider(names_from = "compound", values_from = "visits") %>% column_to_rownames("pollinator") %>% as.matrix()
+
+#relative amount of each compound
+plantcompoundrelative <- scent.net.cut %>% as.data.frame() %>% decostand(method="tot") %>% rownames_to_column("plant") %>% #average peak area
+  pivot_longer(-plant, names_to = "compound", values_to = "emissions") %>% filter(emissions!=0)
+
+#multiply number of visits by relative peak area
+# weights visit to compounds. Proportions visits based on how many VOCs there are.
+scentpollnet.area <- left_join(plantcompoundrelative, plantpollinatorvisits,relationship = "many-to-many") %>%  group_by(pollinator, compound) %>% mutate(visits.area=visits*emissions) %>%  summarise(visits.area=sum(visits.area)) %>%  pivot_wider(names_from = "compound", values_from = "visits.area") %>% column_to_rownames("pollinator") %>% as.matrix()
 
 scentpollnet.class <- tibble(pollinator=rownames(scentpollnet)) %>% left_join(polls.class.dataframe) %>% pull(pollinator_group)
+
 
 #plot bipartite network
 plotweb(sqrt(scentpollnet), text.rot=90, method="cca", col.high=pal[2], bor.col.high=pal[2], col.low=pcols[scentpollnet.class], bor.col.low=pcols[scentpollnet.class], col.interaction=pal[5], bor.col.interaction=pal[5])
@@ -244,6 +327,7 @@ plotweb(sqrt(scentpollnet), text.rot=90, method="cca", col.high=pal[2], bor.col.
 ##Heatmap scent-net
 ```{r heatmap, fig.asp=1}
 
+#value = number of 
 heatmaply(scentpollnet, scale="none", showticklabels = c(F,T), margins= c(0,NA,0,0),
           scale_fill_gradient_fun = ggplot2::scale_fill_gradient(low = "white", high = "#000050", trans="log1p"),
           distfun=vegdist, 
@@ -252,6 +336,190 @@ heatmaply(scentpollnet, scale="none", showticklabels = c(F,T), margins= c(0,NA,0
           #row_side_palette=function(n) pcols, 
           row_side_colors=data.frame(PollinatorGroup=scentpollnet.class), 
           row_side_palette=function(n) pcols.all)
+
+voc.pollgrp.cap <- capscale(sqrt(scentpollnet.area)~scentpollnet.class)
+anova(voc.pollgrp.cap)
+
+plot(voc.pollgrp.cap, type="text")
+
+```
+
+#relative peak area x visits
+```{r}
+
+#value = number of 
+heatmaply(scentpollnet.area, scale="none", showticklabels = c(F,T), margins= c(0,NA,0,0),
+          scale_fill_gradient_fun = ggplot2::scale_fill_gradient(low = "white", high = "#000050", trans="log1p"),
+          distfun=vegdist, 
+          hclustfun=function(x) hclust(x, method="mcquitty"), 
+          #row_side_colors = data.frame(P=plants.majorpoll[rowSums(net)>0]),
+          #row_side_palette=function(n) pcols, 
+          row_side_colors=data.frame(PollinatorGroup=scentpollnet.class), 
+          row_side_palette=function(n) pcols.all)
+
+```
+
+
+#Rarifaction
+```{r}
+#species accumulation curves
+#figure out what percent Pauls data catpured the whole pollinator community
+#pull out 1 random 1 hr sampling period and say how many pollinators observered, then do this again and again randomly - variation in samples = standard error y axis= number of species, x= number of pollinator observations 
+
+#class= bee, fly, butterfly, hummingbird
+#xaxis is number of plant species observed (if you did the whole summer but only looked at 1 species and then next summer looked at 2 species, etc.)
+#
+
+#simplify net.long to only have numbers in it so that accumulation curve will work 
+#rows are observation "units" and columns are pollinators
+net.wide <- net.long %>% select(pollinator, interactions) %>% mutate(index=row_number()) %>% 
+    pivot_wider(names_from=pollinator, values_from = interactions) %>% mutate(across(everything(),~replace_na(.x, 0))) %>% select(-index) %>% as.matrix()
+
+for(class in unique(polls.class)) { #could replace class with family
+  class_subset <- net[,polls.class==class] #making accumulation curve for each pollinator class
+  class_sa <- vegan::specaccum(class_subset, permutations = 999) 
+  plot(class_sa, col = as.integer(factor(class))+1, add = class != "bee", lwd=2, 
+       xlab="Pollinator Observations", ylab="Pollinator Species", main="Pollinator Species accumulation curve", sub=class)
+}
+legend("bottomright", unique(polls.class), 
+       col = 2:5, pch = 19, title = "Class")
+
+sa<- vegan::specaccum(net.wide,permutations=100, method="exact")
+plot(sa) 
+
+#Pauls total pollinator observations 8hrs/wk * 42wks = 336 hours total
+
+visitationrate <- nrow(net.long)/336 #15.33 unique p-p observations per hr (observation can include multiple visits)
+#observation=within a 15min period how many p-p interactions did we see, total number of links observed
+2000/visitationrate # 130 hrs per treatment ( 2 treatments = 260 hrs per year)
+
+#then based on my observation hours, what percent of the pollinator community could be captured
+
+
+```
+
+#modularity
+```{r}
+
+
+
+```
+
+#normalized degree for p-p
+```{r}
+
+
+library(rstatix)
+ND_poll<-ND(net, normalised = T)$higher 
+
+#creates dataframe with normalized degree for each pollinator and pollinator class (same as data.frame)
+ND.poll.class <- tibble(ND=ND_poll, polls.class=polls.class) 
+  
+kruskal_test(ND.poll.class, ND~polls.class)
+
+ggplot(ND.poll.class, aes(x= polls.class, y=ND)) +geom_boxplot()
+
+
+
+```
+
+#normalized degree for VOC-pollinator
+```{r}
+library(rstatix)
+
+#ND for pollinators in scent network
+ND_poll_scent<-ND(scentpollnet, normalised = T)$lower 
+
+#creates dataframe with normalized degree for each pollinator and pollinator class (same as data.frame)
+ND.poll <- tibble(ND=ND_poll_scent, polls.class=polls.class) 
+  
+kruskal_test(ND.poll, ND~polls.class)
+
+ggplot(ND.poll, aes(x= polls.class, y=ND)) +geom_boxplot()
+
+
+#ND of VOC chemical class
+ND_scent_poll<-ND(scentpollnet, normalised = T)$higher 
+
+#creates dataframe with normalized degree for each VOC and chemical class (same as data.frame)
+ND.scent <- tibble(ND=ND_scent_poll, vols.class=compound.class$major_class) 
+  
+kruskal_test(ND.scent, ND~vols.class)
+
+ggplot(ND.scent, aes(x= vols.class, y=ND)) +geom_boxplot()
+
+```
+
+#normalized visits - home cooked
+```{r}
+#created a function similar to normalized degree(ND) but ND looks at presence/absence in the network where normalized visits (NV) looks at the normalized weighted visits/interactions. This accounts for variation in the amount each plant or compound is visited and give those with higher interaction frequency greater weight or contribution to the network  
+
+normalized.visits <- function (web, normalised = TRUE) 
+{
+
+  websum <- sum(web) #takes sum of all interactions in the web
+  dlower <- rowSums(web)
+  dhigher <- colSums(web)
+  Nlow <- Nhigh <- 2
+  if (normalised) {
+    Nlow <- websum 
+    Nhigh <- websum
+  }
+  low <- dlower/Nlow #weighting the interactions by dividing rowsums by the sum of all links in the network
+  names(low) <- rownames(web) #dividing colsums by the sum of all links in the network
+  high <- dhigher/Nhigh
+  names(high) <- colnames(web)
+  list(lower = low, higher = high)
+}
+```
+
+
+#weighted normalized  for p-p (pollinators only)- home cooked
+```{r}
+#Which pollinators have the most visits. of all the visits recorded, what percentage of them were by that pollinator (for a given plant what percentage of visits does it get out of the whole meadow, for a pollinator what percentage of visits does it give out of all visits)
+
+#normalized visits for pollinators in scent net
+NV_poll<-normalized.visits(net, normalised = T)$higher 
+
+#creates dataframe with normalized degree for each pollinator and pollinator class (same as data.frame)
+NV.poll.class <- tibble(NV=NV_poll, polls.class=polls.class) 
+  
+kruskal_test(NV.poll.class, NV~polls.class)
+
+ggplot(NV.poll.class, aes(x= polls.class, y=NV)) +geom_boxplot()
+#only a few species making most of the visits
+#1 bee responsible for 40% of visits
+
+
+```
+
+#normalized visits for scent network
+```{r}
+
+#normalized visits for pollinators in scent net
+#which pollinator class visits the most amount of compounds weighted by the number of visits
+NV_poll_scentnet<-normalized.visits(scentpollnet, normalised = T)$lower 
+
+#creates dataframe with normalized degree for each pollinator and pollinator class (same as data.frame)
+NV.poll.class.scentnet <- tibble(NV=NV_poll_scentnet, polls.class=polls.class) 
+  
+kruskal_test(NV.poll.class.scentnet, NV~polls.class)
+
+ggplot(NV.poll.class.scentnet, aes(x= polls.class, y=NV)) +geom_boxplot()
+#super generalist bees
+
+#normalized visits for VOCs in scent net
+#which compound class are most visited
+NV_voc<-normalized.visits(scentpollnet, normalised = T)$higher 
+
+#creates dataframe with normalized degree for each pollinator and pollinator class (same as data.frame)
+NV.vols.class <- tibble(NV=NV_voc, vols.class=compound.class$major_class) 
+  
+kruskal_test(NV.vols.class, NV~vols.class)
+
+ggplot(NV.vols.class, aes(x= vols.class, y=NV)) +geom_boxplot()
+#tells you what vocs get the most visits
+#no difference in visitation rate to compound classes
 
 ```
 
