@@ -1,0 +1,348 @@
+---
+title: "Nectar-Tongue"
+author: "Janelle and John"
+date: "2024-07-18"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(brranching)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+library(tibble)
+```
+
+```{r}
+#load in data
+
+#nectar tube depth
+nectar.tube <- read_sheet("1xPQnGbrO8WcIa2Xvrrs_i6t8xtlTEG6ddqcTTrJGKbQ", sheet= "plant_nectar")
+
+#flower visitor tongue length
+visitor.tongue.length <- read_sheet("1xPQnGbrO8WcIa2Xvrrs_i6t8xtlTEG6ddqcTTrJGKbQ", sheet="pollinator_tongue") %>% drop_na()
+
+
+net.long <- read_sheet("1plhxbVh5IQLNVMazqO4OvfM3X6vbll_Y6BTMJ94bkI4", na=c("","na", "NA")) %>%    
+      mutate(pollinator_group= if_else(pollinator=="papilio_gothica", "butterfly", pollinator_group)) %>% #fix papilio_gothica from bee -> butterfly
+      mutate(plant= recode(plant,senecio_tall_int = "senecio_integerrimus", agoceris_glauca = "agoseris_glauca", agoceris_aurantiaca="agoseris_aurantiaca", hydrophyllum_fendeleri="hydrophyllum_fendleri"))
+
+
+#plant-pollinator interaction network 
+p.pinteractions <- net.long %>% select(plant, pollinator, interactions) %>%  #net.long taken from JB-Scent-Network
+    rename(plant_species=plant, pollinator_species=pollinator)
+
+#pollinator list with tongue length measurements
+pollinator.tongue.list <- read_sheet("1xPQnGbrO8WcIa2Xvrrs_i6t8xtlTEG6ddqcTTrJGKbQ", sheet="pollinator_list")
+
+pollinator_data <- pollinator.tongue.list %>%
+  left_join(visitor.tongue.length, by = "pollinator_species") %>% 
+    mutate(across(where(is.character), ~ na_if(.x, ""))) %>%   # Replace empty strings with NA in character columns
+  mutate(across(where(is.character), ~ na_if(.x, "NULL"))) %>%   # Replace "NULL" strings with NA in character columns
+  mutate(across(where(is.character), ~ na_if(.x, "na"))) 
+
+interaction_nectar <- p.pinteractions %>%
+  left_join(nectar.tube, by = "plant_species") %>% 
+  mutate(across(where(is.character), ~ na_if(.x, ""))) %>%   # Replace empty strings with NA in character columns
+  mutate(across(where(is.character), ~ na_if(.x, "NULL"))) %>%   # Replace "NULL" strings with NA in character columns
+  mutate(across(where(is.character), ~ na_if(.x, "-")))
+   
+
+combined_data <- interaction_nectar %>%
+  left_join(pollinator_data, by = "pollinator_species", relationship = "many-to-many") %>% 
+  mutate(across(where(is.character), ~ na_if(.x, "na"))) %>% 
+  mutate(across(where(is.character), ~ na_if(.x, "NULL"))) %>% 
+  drop_na(tongue_length_mm) 
+
+pollinator.group <- polls.count %>% 
+    select(pollinator_group, pollinator_family, pollinator) %>%  #polls.count taken from JB-Scent-Network
+    rename(pollinator_species=pollinator, Family.y=pollinator_family)
+    
+data.all <- combined_data %>% 
+    left_join(pollinator.group, by= "pollinator_species", relationship = "many-to-many")
+
+#tongue <- pollinator.tongue.list %>% left_join(visitor.tongue.length) %>% group_by(pollinator_species) 
+ 
+ 
+ #how to combine tongue and nectar.tube????????
+
+p.pinteractions$plant_species <- as.character(p.pinteractions$plant_species)
+nectar.tube$plant_species <- as.character(nectar.tube$plant_species)
+ 
+#tongue.depth <- p.pinteractions %>% left_join(nectar.tube, by = "plant_species") 
+
+
+
+
+
+```
+
+
+```{r}
+#group by pollinator (fly, bee, hummingbird,etc)
+#each flower come up with average tongue length for each of the pollinator groups 
+# need to get # of visits 
+#y is # of bees x flies x bumble for each flower species/ total number of insect visitors
+#x is nectar tube depth
+
+weighted_mean_per_plant <- data.all %>%
+  group_by(plant_species) %>%
+  summarize(
+    weighted_mean_tongue_length = sum(tongue_length_mm * interactions) / sum(interactions),
+    .groups = 'drop'  # Optional: prevents retaining the grouping structure
+    )  %>% 
+    left_join(nectar.tube) %>% 
+    select(plant_species, weighted_mean_tongue_length, functional_nectar_depth_mm)
+
+weighted.lm.pauls <- lm(weighted_mean_tongue_length~functional_nectar_depth_mm, data = weighted_mean_per_plant)
+print(weighted.lm.pauls)
+summary(weighted.lm.pauls)
+
+ggplot(weighted_mean_per_plant, aes(x = functional_nectar_depth_mm, y = weighted_mean_tongue_length)) +
+    geom_point() +
+    geom_smooth(method = "lm", color = "blue") +
+    labs(
+        title = "",
+        x = "Functional Nectar Tube Depth (mm)",
+        y = "Average Tongue Length (mm)"
+    ) +
+    theme_minimal()
+
+```
+
+#Weighted Variance
+```{r}
+#variance for the average nectar tube depth graphed to see if there is a minimum and if they are choosing to go to the 
+
+#y is SD of tongue length of all visitors for each flower species 
+
+#raw variance data: 
+
+weighted_variance <- data.all %>%
+  group_by(plant_species) %>%
+  summarize(
+    weighted_variance_tongue_length = sum(interactions * (tongue_length_mm - (sum(tongue_length_mm * interactions) / sum(interactions)))^2) / sum(interactions),
+    .groups = 'drop'  # Optional: prevents retaining the grouping structure
+    )  %>% 
+    left_join(nectar.tube) %>% 
+    select(plant_species,  weighted_variance_tongue_length, functional_nectar_depth_mm) #%>% 
+    #filter(plant_species != "delphinium_nuttallianum", "ipomopsis_aggregata")
+
+variance.lm <- lm(weighted_variance_tongue_length~functional_nectar_depth_mm, data = weighted_variance)
+
+print(variance.lm)
+summary(variance.lm)
+
+ggplot(weighted_variance, aes(x = functional_nectar_depth_mm, y = weighted_variance_tongue_length)) +
+    geom_point() +
+    geom_smooth(method = "lm", color = "blue") +
+    labs(
+        title = "",
+        x = "Functional Nectar Tube Depth (mm)",
+        y = "Weighted Variance Tongue Length"
+    ) +
+    theme_minimal()
+
+
+#remove outliers
+
+# Function to remove outliers based on IQR
+remove_outliers <- function(data, col) {
+  Q1 <- quantile(data[[col]], 0.25)
+  Q3 <- quantile(data[[col]], 0.75)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  data %>%
+    filter(data[[col]] >= lower_bound & data[[col]] <= upper_bound)
+}
+
+# Remove outliers for tongue_length_mm
+clean_data <- remove_outliers(weighted_variance, "weighted_variance_tongue_length")
+
+clean.variance.lm <- lm(weighted_variance_tongue_length~functional_nectar_depth_mm, data = clean_data)
+print(clean.variance.lm)
+summary(clean.variance.lm)
+
+ggplot(clean_data, aes(x = functional_nectar_depth_mm, y = weighted_variance_tongue_length)) +
+    geom_point() +
+    geom_smooth(method = "lm", color = "blue") +
+    labs(
+        title = "",
+        x = "Functional Nectar Tube Depth (mm)",
+        y = "Weighted Variance Tongue Length"
+    ) +
+    theme_minimal()
+
+
+```
+
+#paul's data with 5 pollinator group tongue averages
+```{r}
+pauls.poll.groups.tongue <- data.all %>% 
+    left_join(mean.poll.tongue, by="pollinator_group", relationship = "many-to-many")
+
+
+poll_group_mean_tongue_paul <- pauls.poll.groups.tongue %>%
+  group_by(plant_species) %>%
+  summarize(
+    weighted_mean_tongue_length_pollgroup_paul = sum(mean_tongue_length * interactions) / sum(interactions),
+    .groups = 'drop'  # Optional: prevents retaining the grouping structure
+    )  %>% 
+    left_join(nectar.tube) %>% 
+    select(plant_species, weighted_mean_tongue_length_pollgroup_paul, functional_nectar_depth_mm)
+
+weighted.lm.poll.group.paul <- lm( weighted_mean_tongue_length_pollgroup_paul~functional_nectar_depth_mm, data = poll_group_mean_tongue_paul)
+
+print(weighted.lm.poll.group.paul)
+summary(weighted.lm.poll.group.paul)
+
+ggplot(poll_group_mean_tongue_paul, aes(x = functional_nectar_depth_mm, y = weighted_mean_tongue_length_pollgroup_paul)) +
+    geom_point() +
+    geom_smooth(method = "lm", color = "blue") +
+    labs(
+        title = "",
+        x = "Functional Nectar Tube Depth (mm)",
+        y = "Average Tongue Length (mm)"
+    ) +
+    theme_minimal()
+
+```
+
+
+```{r}
+
+#with paul's data- group by pollinator group and tongue length 
+```
+
+
+# Read in our data! 
+```{r}
+
+#TODO: need to determine body size for flower visitors 
+
+pollinator_group <- read_sheet("1xPQnGbrO8WcIa2Xvrrs_i6t8xtlTEG6ddqcTTrJGKbQ", sheet= "pollinator_group")
+
+pollinator.observations <- read_sheet("1N3HmtcG3Rv4smOS3-SWdpyHAuH3oLvK2KgzWG4JQmNY")
+
+#TODO: need body size of pollinators so we can make new column with s.m.l to left_join to pollinator_observations data sheet 
+
+
+```
+
+```{r}
+
+# average tongue length by pollinator group 
+
+pollinator_group_tongue <- pollinator_group %>% 
+    left_join(visitor.tongue.length, relationship= "many-to-many") %>% 
+    select(pollinator_species, tongue_length_mm, pollinator_group) %>% 
+    drop_na() 
+
+mean.poll.tongue <- pollinator_group_tongue %>% 
+    group_by(pollinator_group) %>% 
+    summarise(mean(tongue_length_mm)) %>% 
+    rename(mean_tongue_length= "mean(tongue_length_mm)")
+
+View(mean.poll.tongue)
+
+
+#combine poll obs with pollinator tongue length 
+
+pollinator.observations.tongue <- pollinator.observations %>% 
+    left_join(mean.poll.tongue, relationship = "many-to-many") %>% 
+    rename(average_tongue_length= "mean_tongue_length)") %>% 
+    drop_na(average_tongue_length) 
+
+```
+
+#Weighted mean tongue length using visits
+```{r}
+pollinator.observations.tongue$average_tongue_length <- as.numeric(pollinator.observations.tongue$average_tongue_length)
+
+pollinator.observations.tongue$visits <- as.numeric(pollinator.observations.tongue$visits)
+
+weighted_mean_tongue_rainout <- pollinator.observations.tongue %>%
+  group_by(plant_species) %>%
+  summarize(
+    weighted_mean_tongue_length_rainout = sum(average_tongue_length * visits) / sum(visits),
+    .groups = 'drop'  # Optional: prevents retaining the grouping structure
+    )  %>% 
+    left_join(nectar.tube) %>% 
+    select(plant_species, weighted_mean_tongue_length_rainout, functional_nectar_depth_mm)
+
+weighted.lm <- lm(weighted_mean_tongue_length_rainout~functional_nectar_depth_mm, data = weighted_mean_tongue_rainout)
+print(weighted.lm)
+
+summary(weighted.lm)
+
+ggplot(weighted_mean_tongue_rainout, aes(x = functional_nectar_depth_mm, y = weighted_mean_tongue_length_rainout)) +
+    geom_point() +
+    geom_smooth(method = "lm", color = "blue") +
+    labs(
+        title = "",
+        x = "Functional Nectar Tube Depth (mm)",
+        y = "Average Tongue Length (mm)"
+    ) +
+    theme_minimal()
+```
+
+#weighted variance for rainout
+```{r}
+weighted_variance_rainout <- pollinator.observations.tongue %>%
+  group_by(plant_species) %>%
+  summarize(
+    weighted_variance_tongue_length_rainout = sum(visits * (average_tongue_length - (sum(average_tongue_length * visits) / sum(visits)))^2) / sum(visits),
+    .groups = 'drop'  # Optional: prevents retaining the grouping structure
+    )  %>% 
+    left_join(nectar.tube) %>% 
+    select(plant_species,  weighted_variance_tongue_length_rainout, functional_nectar_depth_mm) #%>% 
+    #filter(plant_species != "delphinium_nuttallianum", "ipomopsis_aggregata")
+
+variance.lm.rainout <- lm(weighted_variance_tongue_length_rainout~functional_nectar_depth_mm, data = weighted_variance_rainout)
+
+print(variance.lm.rainout)
+summary(variance.lm.rainout)
+
+ggplot(weighted_variance_rainout, aes(x = functional_nectar_depth_mm, y = weighted_variance_tongue_length_rainout)) +
+    geom_point() +
+    geom_smooth(method = "lm", color = "blue") +
+    labs(
+        title = "",
+        x = "Functional Nectar Tube Depth (mm)",
+        y = "Weighted Variance Tongue Length"
+    ) +
+    theme_minimal()
+
+```
+
+
+```{r}
+
+#same results for rainout and control? compare using:
+# lm (mean_tongue_length~ treatment * nectar_depth)
+#only use last two weeks of data so rainouts have time to take effect
+# instead of treatment could also do soil moisture- use scent soil moisture for each plant species in a particular treatment 
+
+```
+
+
+```{r}
+
+#TODO: 
+#no boxplot- but maybe later
+# separate by treatment and/or soil mositure 
+#Pauls data with 5 pollinator groups
+#weighted variance for our data
+#fix names so nectar tube depth shows up for all our species in the meadow 
+
+```
+

@@ -108,7 +108,7 @@ chemtable <- make_chemtable(longdata, metadata) %>%
   filter_ambient_ratio(sampletable, metadata, ratio = 3) %>% 
   filter_ambient_ttest(sampletable, metadata, 
                        alpha = 0.05, adjust = "fdr") 
-chemtable<- chemtable %>% rename(filtercount.floral="filter_count.floral") %>% rowwise() %>% mutate(filtercount.anyspecies="OK"%in% c_across(starts_with("filter_count")))
+chemtable<- chemtable %>% rename(filtercount.floral="filter_count.floral") %>% rowwise() %>% mutate(filtercount.anyspecies="OK"%in% c_across(starts_with("filter_count"))) #tests if there are any OKs in all of the filter counts (if compound present in >20% in any species)
 
 attr(chemtable, "min_ratio") <- 3
 
