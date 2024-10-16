@@ -1,0 +1,171 @@
+---
+title: "rainout-flower-traits-2024"
+author: "Janelle and John"
+date: "2024-08-19"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(brranching)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+library(tibble)
+library(lme4)
+library(lmerTest)
+library(broom)
+library(tidyverse)
+library(tidyr)
+library(vegan)
+library(dplyr)
+library(broom.mixed)
+library(car)
+library(emmeans)
+library(knitr)
+```
+
+# read in morphology metadata & find plant averags for morph traits
+```{r}
+rainout.treatments <- read_sheet("13J7QB2i9mxBsIlbdRu0zL7YKLHL-Wgd-bN3LngkiZww")%>% 
+  mutate(plot = tolower(as.character(plot))) #makes plot letter lowercase
+
+flower.size <- read_sheet("1fJuFDOMitdC6bdTm12XWBTZpX4u15uHdkf0y-Ilelw4") %>% 
+  mutate(plot = tolower(as.character(plot))) %>% 
+  left_join(rainout.treatments) %>% drop_na() 
+#%>% mutate(plant= fct_recode(plant, "gallium"="boreale" ))
+
+#table of # of plant species in each treatment
+with(flower.size, table(plant, treatment))
+
+#Making new vector with means of each trait for each transect
+flower.size.means <- flower.size %>%
+    group_by(transect, plant, plot) %>% #takes mean for each plant (i.e. agg 1)
+    summarise(across(c(depth, length, width, inflo_height),
+              ~mean(.x, na.rm=TRUE))) 
+```
+
+#model all traits
+```{r}
+all.morph.traits <- c("length", "width", "depth", "inflo_height")
+
+morph.models.everything <- flower.size %>% pivot_longer(all_of(all.morph.traits), names_to = "trait") %>% group_by(trait,plant) %>% nest() %>% 
+      filter(!plant%in% c("micro white?!", " micro white", "pakera")) %>% 
+      mutate(morph.trait.lmer=map(data, ~lmer(value~treatment + (1|transect), data=.x)), 
+      morph.Anova= map(morph.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
+      unnest(morph.Anova)%>%
+      dplyr::select(-data) %>% #-morph.trait.lmer
+      mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      filter(term!="(Intercept)") %>% 
+       mutate(emmeans=map(morph.trait.lmer, ~tidy(emmeans(.x, specs=c("treatment") )) %>% select(-p.value)))
+
+#kable(morph.models.everything, digits=3) #spits out model into table
+
+#emmeans table 
+
+morph.emmeans<- morph.models.everything %>% dplyr::select(-morph.trait.lmer, -term, -statistic, -df ) %>% 
+      #mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      unnest(emmeans)  
+    
+#kable(morph.emmeans, digits=3) #spits out model into table
+
+#boxplot for averages of all traits
+plot.traits <- flower.size %>% 
+    pivot_longer(all_of(all.morph.traits), names_to = "trait") %>% 
+    #filter(trait%in% c("corolla_length", "max_anther")) %>% 
+    ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
+    facet_wrap(vars(trait),scales = "fixed", labeller=as_labeller(c(depth="Nectar Depth", length= "length", width="width", inflo_height="Info Height")))+
+    labs(y="", x="plant", color="treatment") +
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom")
+  #scale_y_continuous(limits=c(0, NA))
+
+print(plot.traits)
+
+#nectar depth only plot
+plot.depth <- flower.size %>% 
+    pivot_longer(all_of(all.morph.traits), names_to = "trait") %>% 
+    filter(trait%in% c("depth")) %>% 
+    ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
+    facet_wrap(vars(trait),scales = "fixed", labeller=as_labeller(c(depth="Nectar Depth", length= "length", width="width", inflo_height="Info Height")))+
+    labs(y="Length (mm)", x="plant", color="treatment") +
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom")
+  #scale_y_continuous(limits=c(0, NA))
+
+print(plot.depth)
+
+#length only plot
+plot.length <- flower.size %>% 
+    pivot_longer(all_of(all.morph.traits), names_to = "trait") %>% 
+    filter(trait%in% c("length")) %>% 
+    ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
+    facet_wrap(vars(trait),scales = "fixed", labeller=as_labeller(c(depth="Nectar Depth", length= "length", width="width", inflo_height="Info Height")))+
+    labs(y="Length (mm)", x="plant", color="treatment") +
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom")
+  #scale_y_continuous(limits=c(0, NA))
+
+print(plot.length)
+
+
+#width only plot
+plot.width <- flower.size %>% 
+    pivot_longer(all_of(all.morph.traits), names_to = "trait") %>% 
+    filter(trait%in% c("width")) %>% 
+    ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
+    facet_wrap(vars(trait),scales = "fixed", labeller=as_labeller(c(depth="Nectar Depth", length= "length", width="width", inflo_height="Info Height")))+
+    labs(y="Width (mm)", x="plant", color="treatment") +
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom")
+  #scale_y_continuous(limits=c(0, NA))
+
+print(plot.width)
+
+
+#inflo height only plot
+plot.height <- flower.size %>% 
+    pivot_longer(all_of(all.morph.traits), names_to = "trait") %>% 
+    filter(trait%in% c("inflo_height")) %>% 
+    ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
+    facet_wrap(vars(trait),scales = "fixed", labeller=as_labeller(c(depth="Nectar Depth", length= "length", width="width", inflo_height="Info Height")))+
+    labs(y="Length (cm)", x="plant", color="treatment") +
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom")
+  #scale_y_continuous(limits=c(0, NA))
+
+print(plot.height)
+```
+
+#phenology
+```{r}
+
+#plot days and number of open flowers per species (per treatment?)
+flowercounts <- read_sheet("1YR7lBNf5s9Drw9Ix61J8wUtKQO-XuZmXrRMhgktsc5k")
+
+phenology <- flowercounts %>% left_join(rainout.treatments) %>% 
+    filter(!date %in% ymd(c("2024-07-02","2024-07-03", "2024-07-05" ))) %>% 
+    filter(!plant %in% c("little white flower", "rock jasmine", "rosa", "agoseris aurantiaca")) %>% 
+  ggplot(aes(color=treatment, x=str_to_title(date), y=flower_number))+geom_boxplot()+
+   facet_wrap(vars(plant),scales = "fixed")+
+    labs(y="", x="", color="treatment") +
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom")
+
+print(phenology)
+
+```
+

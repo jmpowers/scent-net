@@ -1,0 +1,91 @@
+---
+title: "drought-net"
+author: "Janelle and John"
+date: "2024-07-12"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(brranching)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+```
+
+# Visitation Rate
+```{r}
+#load metadata
+
+#visitation rate
+vrate <- read_sheet("1N3HmtcG3Rv4smOS3-SWdpyHAuH3oLvK2KgzWG4JQmNY", na=c("na","","NA"))
+
+#flower counts
+flowercounts<- read_sheet("1YR7lBNf5s9Drw9Ix61J8wUtKQO-XuZmXrRMhgktsc5k", sheet="2024")
+
+
+```
+
+```{r}
+vrate.complete<- vrate %>% complete(nesting(date, week, start, end, transect, plot, transectplot), plant, nesting(insect_class,size)) %>% 
+  #find all unique combinations of plant-insect visits
+  mutate(visits=replace_na(visits,0)) 
+
+
+vrate.flowercount<- vrate.complete %>% 
+    group_by(date, week, start, end, transect, plot, transectplot, plant, insect_class) %>% 
+    summarise(visits=sum(visits)) %>% 
+    left_join(flowercounts) %>% drop_na(flower_number) %>% 
+    mutate(visitsperflowerperhr = (visits/flower_number)*4)
+
+
+flowercounts %>% count(date, transect, plot, plant) %>% View()
+#need to figure out duplicates in flower number in raw data dates: 2024-07-08; 2024-07-18; 2024-07-22
+#click on n to see "2"s 
+
+flowercount.wide <- flowercounts %>% pivot_wider(names_from = plant, values_from = flower_number, values_fill = 0) 
+
+flowercount.numbers <- flowercount.wide [,6:35] 
+#to add treatment
+keep <- rowSums(flowercount.numbers)>4
+flowercount.numbers <- flowercount.numbers[keep, ]
+flowercount.wide <- flowercount.wide[keep,] %>% left_join(rainout.treatments)
+
+#CAP of flower number for each treatment
+cap.flowernumber <- capscale(flowercount.numbers~treatment+factor(date), data = flowercount.wide)
+
+plot(cap.flowernumber, type="n")
+points(cap.flowernumber, col=c("red","blue")[as.integer(as.factor(flowercount.wide$treatment))])
+text(cap.flowernumber, display="species")
+
+#nmds to see what species are causing variation in data
+
+nmds.flowernumber <- metaMDS(flowercount.numbers)
+
+plot(nmds.flowernumber, type="n")
+points(nmds.flowernumber, col=c("red","blue")[as.integer(as.factor(flowercount.wide$treatment))])
+text(cap.flowernumber, display="species")
+
+barplot(t(as.matrix(flowercount.numbers)), col = rainbow(16))
+
+
+flowercount.summary <- flowercounts %>%  
+    filter(!plant %in% c("little white flower", "rock jasmine", "rosa", "agoseris aurantiaca")) %>% 
+    left_join(rainout.treatments) %>% 
+    group_by(date, treatment, plant) %>% summarise(flower_number=sum(flower_number)) 
+
+ggplot(flowercount.summary, aes(y=flower_number, x= paste(date, treatment), fill=plant)) +geom_col() + scale_x_discrete(guide = guide_axis(angle=90))
+
+#TODO: clean up repeat species in flowercount.summary
+
+
+```
+
+

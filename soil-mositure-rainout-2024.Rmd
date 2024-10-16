@@ -1,0 +1,40 @@
+---
+title: "soil-mositure"
+author: "Janelle and John"
+date: "2024-07-18"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(brranching)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+library(tibble)
+library(lme4)
+library(lmerTest)
+```
+
+```{r}
+#load in data
+
+vwc <- read_sheet("1pMNaVLHJ2d5SBAP25xk5DjTMnbX1yAmYyWLtiJ_bQlw", na=c("","rocky")) %>% mutate(top_VWC=as.numeric(top_VWC), bottom_VWC=as.numeric(bottom_VWC)) %>%
+  pivot_longer(c(top_VWC, bottom_VWC), names_to="position", values_to="VWC") %>% group_by(plot, transect, transect_plot, treatment, date) %>% 
+  summarize(VWC = mean(VWC, na.rm=TRUE), .groups = "drop")
+```
+
+```{r}
+vwc.lmer <- lmer(VWC~treatment + (1|date), data = mutate(vwc, date=factor(date),transect_plot=factor(transect_plot)))
+anova(vwc.lmer) #p=o.o6
+summary(vwc.lmer)
+ggplot(vwc, aes(x=factor(date), y=VWC, color=treatment))+geom_boxplot()
+```
+
