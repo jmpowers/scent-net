@@ -1,0 +1,945 @@
+---
+title: "Drought.web"
+author: "Connor Morozumi"
+date: "8.5.2020; most recent edits `r format(Sys.time(), '%d %B %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: true
+    number_sections: true
+    code_folding: hide
+    theme: cosmo
+    df_print: paged
+---
+
+# Code overview
+
+This document contains all code for Morozumi et al. 2022. Oikos manuscript investigating the effects of drought on plant-pollinator niche breadth. We utilized visitation data from three sites over five years, 2016-2020 with 2018 and 2020 determined to be drought years. We wanted to understand whether interactions in drought were getting more general (niche broadening) when floral resources were depressed. Additionally, we  want to know whether this niche broadening is associated with changes in interaction abundances and/or species turnover between the drought and non-drought years. To do this we devised a null model (bootstrap type procedure) and calculated a series of network summary metrics on the 1000 bootstrapped replicates. We used permutation based statistical comparison of network metric values to the raw value calculated in drought year. Additionally we partitioned the data by site and year to understand the contributions of these factors to the overall findings. We also standardized to family-level insect identification and reran the niche analyses. Finally, we analyzed weather data to confirm drought year determination.
+
+1. Null model bootstrap
++ Null model Method 1: Standardizing for abundance
++ Controlling for species turnover
++ By site and year
+3. Family level analysis
+4. Floral Abundance
+5. Drought Analysis
++ NMDS
++ PERMANOVA
+
+## Load pkgs and data
+```{r pkgs}
+library(tidyverse)
+library(bipartite)
+library(patchwork)
+library(cowplot)
+```
+
+```{r read data}
+
+
+visitation= read.csv("visitation.csv")
+flowers= read.csv("floral_abundance.csv", header = T)
+weather= read.csv("gothic_weather.csv", header = T)
+
+```
+
+
+Make bigger and smaller nets
+```{r}
+non.drought.inx = visitation %>% 
+  filter(drought== "non-drought") %>% 
+  select(finest_ID, plant)
+
+
+drought.inx= visitation %>% 
+  filter(drought== "drought") %>% 
+  select(finest_ID, plant)
+```
+
+
+# Null model bootstrap
+
+Some functions we'll use a few times
+
+`edge2net` makes mats out of edgelists
+```{r edge2net}
+edge2net = function(edgelist) {
+# change interaction list to network
+      names(edgelist) = c( "polln", "pl") # rename for access to the variable names
+      # first, tally up interactions
+      tallied <- edgelist %>%
+        group_by(pl, polln) %>%
+        tally()
+      #
+      # then put into network (wide) format
+      temp <- tallied %>%
+        pivot_wider(names_from = polln,
+                    values_from = n,
+                    values_fill = 0) %>%
+        column_to_rownames(var = "pl")
+      return(temp)
+}
+```
+
+`calc.metrics` condenses networklevel outputs to those of interest
+```{r calc.metrics}
+
+calc.metrics= function(web){
+ netlevel.indices = c("connectance", "NODF", "H2", "links per species")
+  # calculate metrics from networklevel
+  net.results = data.frame(t(networklevel(web, index = netlevel.indices)))
+  return(net.results)
+}
+```
+
+`down.net` is the bootstrap sampler which creates the null models
+```{r down.net}
+down.net= function(web.big, web.small, n.rep = 999){
+  
+## WEB.SMALL    
+  # first, calculate metrics for the smaller web
+  # convert edge list to network
+  sm.temp = edge2net(web.small)
+  # calculate metrics
+sm.results= calc.metrics(sm.temp)  
+    
+## SET UP DOWNSAMPLE 
+  # set number of interactions to downsample larger web to
+  num.int = nrow(web.small)
+  
+  # Results container    
+  # create data frame to store downsampled results in
+  results = as.data.frame(matrix(data = NA, nrow = n.rep, ncol = length(names(sm.results))))
+  # set column names to match those from the smaller web results
+  names(results) = names(sm.results)
+  
+#==========
+# DOWNSAMPLING LOOP  
+  # actual downsampling
+  # `for` loop: 1 line of code for each of the following:
+  # downsample, convert to network, calculate metrics
+  # also get rid of empty (summing to zero) rows / columns (1 line each)
+
+  for(i in 1:n.rep){
+    # first, downsample
+    downsmple = web.big[sample(nrow(web.big), size = num.int),]
+    # then change interaction list to network
+    temp = edge2net(downsmple)
+    # remove rows & columns that sum to zero, first rows:
+    temp <- temp[rowSums(temp)!=0, ]
+    # now columns:
+    temp <- temp[,colSums(temp)!=0]
+    # then calculate network metrics & store
+    results[i,] = calc.metrics(temp)
+  }
+    # all done!
+    
+# create a function to calculate p-values
+    # assumes the "observed" values are the first in the vector
+    pvaler = function(x){1-(rank(x)[1])/(n.rep + 1)} 
+    
+    # rbind smaller results as the first row of the results
+    all.results = rbind(sm.results, results)
+    
+    # apply the function over the columns of `all.results`
+    pvals = unlist(lapply(all.results[1:ncol(all.results)], pvaler))
+    
+    # return results
+    return(list(metrics= all.results, pvals=pvals))
+   
+}
+```
+
+`down.plot`
+We are making the same plot over and over again so let's make a function out of that to save us typing errors and keep the length of the code document un-unruly (can you just be ruly?)
+```{r down.plot}
+down.plot = function(down.df, metric, p.val.df){
+# make a temp container to get the different dfs and vectors to talk to oneanother   
+  if(metric == "Quantitative Specialization (H2)") tmp= "H2" 
+  if(metric == "Nestedness (NODF)") tmp= "NODF"
+  if(metric == "Connectance") tmp= "connectance"
+  if(metric == "Links per species") tmp= "links.per.species"
+  # use that temp to match up the pval and the metric you gave it, this will be for annotating the     # p-value on the graph  
+  test=dplyr::filter(p.val.df, grepl(tmp ,metric, ignore.case = T))
+  annot= test$twotailp
+  annot= ifelse(annot< 0.001| annot > 0.999, "< 0.001", paste("=", round(annot, 3)))
+  
+  down.only.metrics= down.df$metrics #pull the metric df to a new df all by itself
+  down.only.metrics= down.only.metrics %>% 
+    select(all_of(tmp)) # select the variable that is getting plotted
+  
+  down.samples = down.only.metrics[-1,] #get rid of the first row since that is the raw data
+  raw = down.only.metrics[1,] #get rid of everything but the raw data
+  
+# set up plot parameters  
+  bw <- 2 * IQR(down.samples) / length(down.samples)^(1/3)
+  
+  
+  plot= ggplot() + 
+  aes(down.samples) +  
+  #scale_x_continuous(expand = c(.002, .05))+
+  geom_histogram(color = 'black', binwidth = bw) +
+  geom_vline(aes(xintercept = raw, color = "Drought"), linetype="dashed", size=1) +
+  scale_color_manual(name="", values = c(Drought = "red")) +
+  theme_bw()+
+  theme(legend.position = "none", legend.key=element_blank(), legend.margin =margin(t = -0.5,   unit='cm')) +
+  labs(x= metric, y= "Frequency")
+
+y.lab= max(ggplot_build(plot)$data[[1]]$count)*.50 # find the mid point from highest bin
+y.lab.d= max(ggplot_build(plot)$data[[1]]$count)*.80
+y.lab.p= max(ggplot_build(plot)$data[[1]]$count)*.98
+x.lab.p = quantile(down.samples, probs = 0.003)
+
+# this is done in two steps because I have it do some calculations from the histogram bins and then use those to determine plotting locations for the text annotations. There probably is a better way to do this.
+plot= plot + geom_label(aes(x = mean(down.samples), label= "Downsampled \n non-drought values", y= y.lab), fill="white") +
+geom_label(aes(x= raw, label="Drought", y=y.lab.d), colour="red", angle=90,  text=element_text(size=11))
+# annotate("text", x = x.lab.p, y = y.lab.p, label =paste("p" ,annot))
+
+plot= ggdraw(plot) + 
+  draw_label(label =paste("p" ,annot), x = 0.15, y = 0.95, hjust = 0.15, vjust = 0.9, size = 11)
+plot
+}
+
+```
+
+
+Here we want to make 999 random networks by downsampling the interactions (~6000) we observed in the non-drought year and sample them until we get the number of interactions in the drought year (~1000) and then calculate metrics of interest for each bootstrap network.
+
+We aggregated the dataset containing all non-drought years, all sites and are downsampling to the size of a matrix that is both drought years, all sites.
+
+The downsampling function will calculate the metrics in 1) the simulated networks and 2) the raw drought network
+
+## Null model Method 1: Standardizing for abundance
+I am calling this unconstrained in the code because it is not constrained by species turnover
+
+```{r downsample abund}
+down.unconstrained= down.net(web.big= non.drought.inx, web.small = drought.inx, n.rep= 999)
+
+name= 'downsamples.unconstrained.'
+filetype= '.csv'
+save.dir= "output/" 
+filename= paste(save.dir, name, Sys.Date(), filetype, sep='')
+
+write.csv(down.unconstrained$metrics, file= filename)
+
+```
+
+### How different from the downsample is the observed values?
+Compare the 999 bootstrap networks to the observed drought year value for each metric of interest. We'll do this with a permutation based p-value by calculating the number of instances the bootstrapped values are more extreme than the observed drought year. Since we did 999 bootstraps and we have 1 observed value, we can find the proportion of the values in the bootstrap more extreme / 999 total values. So the smallest p-value possible with this test is `r 1/1000`. We multiplied one-tailed p-values by 2 to make them two-tailed.
+
+``` {r abund pval cleanup}
+# permutation based p
+pvals=data.frame(down.unconstrained$pvals)
+pvals$analysis = "not constrained"
+pvals=pvals %>% 
+  rownames_to_column("metric") %>% # move metric names to a column for easier manipulation and selection
+  mutate(twotailp= ifelse(down.unconstrained.pvals< 0.5, down.unconstrained.pvals*2, (1-down.unconstrained.pvals)*2))
+
+names(pvals) <- gsub('.*\\.(.*)\\.(.*)', '\\2', names(pvals))
+```
+
+### Plot 
+Use the premade ggplot based plot function called` down.plot` to plot each metric against its observed drought value. Annotate the p-value onto each plot
+```{r abund plot setup}
+down.only.metrics= down.unconstrained$metrics #pull the metric df to a new df all by itself
+  down.only.metrics= down.only.metrics 
+  
+  down.samples = down.only.metrics[-1,] #get rid of the first row since that is the raw data
+  raw = down.only.metrics[1,] #get rid of everything but the raw data
+```
+
+
+```{r plot abund downsample}
+
+h2=down.plot(down.unconstrained, "Quantitative Specialization (H2)", pvals) +
+  expand_limits(x = 0.25) + expand_limits(x =0.14) # some are getting cut off so for these lets expand the x limit
+
+nest= down.plot(down.unconstrained, "Nestedness (NODF)", pvals) 
+
+con= down.plot(down.unconstrained, "Connectance", pvals) +
+  expand_limits(x = 0.11)
+
+deg= down.plot(down.unconstrained, "Links per species", pvals) +
+  expand_limits(x = 3)
+
+```
+
+Use `patchwork`to plot them all together
+```{r abund downsample plot layout}
+library(patchwork)
+
+# network level plots
+all.panal=   deg + con + nest + h2 
+
+#cowplot
+all.panal= plot_grid(deg, con, nest, h2, labels = c('A', 'B', 'C', 'D'), ncol = 2, label_size = 12)
+
+```
+
+## Null bootstrap Method 2: Standardizing for species in common and abundance
+
+Now we wish to understand how much species turnover is driving niche broadening. To do this we'll repeat the above process but now downsample from the overlapping species, ie., the species that were present in both drought and non-drought years.
+
+### Make a common species df
+
+```{r create common species df}
+# use dplyr's semi_join to find the overlap of pollinators between the drought & non-drought years
+tmp= semi_join(as.data.frame(non.drought.inx), as.data.frame(drought.inx), by="finest_ID")
+
+# use semi_join again with that tmp df to find the overlap of plants
+overlap.mat= semi_join(as.data.frame(tmp), as.data.frame(drought.inx), by= "plant")
+```
+
+```{r species filtering}
+# vectors of common species
+plants = intersect(drought.inx$plant, non.drought.inx$plant)
+polln = intersect(drought.inx$finest_ID, non.drought.inx$finest_ID)
+
+# edge lists with only common plants and pollinators
+drought.inx.comm = drought.inx %>% filter(finest_ID %in% polln & plant %in% plants)
+non.drought.inx.comm = non.drought.inx %>% filter(finest_ID %in% polln & plant %in% plants)
+```
+
+```{r comm spec net sizes}
+edge2net(drought.inx.comm) # drought becomes a net that is 38 plants by 62 pols
+edge2net(non.drought.inx.comm) # non drought becomes a net that is 37 plants by 62 pols
+
+setdiff(plants, non.drought.inx.comm$plant) # the difference is Boechera stricta because it is in both years but get eliminated in non drought due to not finding the pollinator it interacts with in drought years
+
+non.drought.inx %>% 
+  filter(plant== "Boechera stricta") # Pterophoridae isn't found in drought nets
+```
+
+```{r calc non-drought metrics constrained}
+
+constrained.nondrought.results= calc.metrics(edge2net(non.drought.inx.comm))  
+
+calc.metrics(edge2net(drought.inx.comm))  
+```
+
+
+### Create downsample bootstraps
+
+```{r downsample common}
+down.constrained = down.net(non.drought.inx.comm, drought.inx.comm, n.rep = 999)
+
+
+name= 'downsamples.constrained.'
+filetype= '.csv'
+save.dir= "output/" 
+filename= paste(save.dir, name, Sys.Date(), filetype, sep='')
+
+write.csv(down.constrained$metrics, file= filename)
+
+```
+
+### How different from the downsample is the observed values? 
+
+```{r comm spp pval cleanup}
+pvals.comm=data.frame(down.constrained$pvals)
+pvals.comm$analysis = "constrained"
+pvals.comm=pvals.comm %>% 
+  rownames_to_column("metric") %>% # move metric names to a column for easier manipulation and selection
+  mutate(twotailp= ifelse(down.constrained.pvals< 0.5, down.constrained.pvals*2, (1-down.constrained.pvals)*2))
+
+names(pvals.comm) <- gsub('.*\\.(.*)\\.(.*)', '\\2', names(pvals.comm))
+
+```
+
+### Plot 
+Plot as before
+```{r comm spp plot setup}
+down.only.metrics= down.constrained$metrics #pull the metric df to a new df all by itself
+  down.only.metrics= down.only.metrics 
+  
+  down.samples = down.only.metrics[-1,] #get rid of the first row since that is the raw data
+  raw = down.only.metrics[1,] #get rid of everything but the raw data
+```
+
+
+```{r plot comm spp downsample}
+
+h2=down.plot(down.constrained, "Quantitative Specialization (H2)", pvals.comm) 
+
+nest= down.plot(down.constrained, "Nestedness (NODF)", pvals.comm) 
+
+con= down.plot(down.constrained, "Connectance", pvals.comm)
+
+deg= down.plot(down.constrained, "Links per species", pvals.comm) 
+
+
+```
+
+Plot all together
+```{r comm spp plot}
+library(patchwork)
+deg + con + nest + h2
+
+all.panal.overlap= plot_grid(deg, con, nest, h2, labels = c('A', 'B', 'C', 'D'), ncol = 2, label_size = 12)
+```
+
+
+## By site and year
+
+A bit of data massaging
+```{r}
+dat = visitation %>% select(site, specimen_number, finest_ID, plant, year, drought)
+
+
+# create integer site.drought variable to later downsample from:
+# (`dense_rank` essentially converts the text to continuous integer ranks)
+dat$site.drought = dense_rank(paste(dat$site, dat$drought, sep = "."))
+dat$year.drought = dense_rank(paste(dat$year, dat$drought, sep = "."))
+
+```
+
+
+For this we'll want to repeat the null model but this time keeping the shuffles within each strata of interest (sites and years separately). Here we are only doing this for plotting trends so we can do less reps. Here we do 100 per unique level.
+
+### Plot of the 4 network metrics with respect to drought and site
+```{r}
+nsamps= 100
+ints = floor(0.85*min(table(dat$site, dat$drought)))
+comboz = length(unique(dat$site.drought))
+
+# create within-loop matrix to store downsampled rows in
+rowz = matrix(data = NA, nrow = comboz, ncol = ints)
+
+# create within-loop results data frame; 6 columns
+# 4 columns for network metrics, plus site and drought
+# start out with just the number of rows for the combination
+network.temp = matrix(data = NA, nrow = comboz, ncol = 6)
+network.temp = data.frame(network.temp)
+names(network.temp) = c("site", "drought", "mean.degree", "connectance", 
+                        "NODF","H2prime")
+
+for(k in 1:nsamps){ # 100
+        for(j in 1:comboz){ # 6
+            # this downsamples (picks rows) 
+            # from each site-drought combo from the data
+            rowz[j,] = sample(which(dat$site.drought==j), size = ints)
+        }
+        # create a dataset by pulling the downsampled rows from the data
+        temp = dat[as.vector(rowz),]
+        # split data by drought / non-drought and site
+        # remove blank rows / columns (if applicable?)
+        for(l in 1:comboz){
+            # pull out one site-drought combo
+            comb = temp[temp$site.drought==l,]
+            # record site and drought status
+            network.temp[l, 1] = comb$site[1]
+            network.temp[l, 2] = comb$drought[1]
+            # turn edge list into matrix
+            tempnet = edge2net(select(comb, finest_ID, plant))
+            # calculate and record network metrics  
+            network.temp[l, 3:6] = calc.metrics(tempnet)
+        }
+        # store data in a new dataframe (if at start of `nsamps` loop),
+        # or else append to existing
+        if(k==1) {net.dat.plot = network.temp} else {
+        net.dat.plot = rbind(net.dat.plot, network.temp)}
+    }
+
+ # pivot_longer
+    net.dat.plot.long = pivot_longer(net.dat.plot, cols = mean.degree:H2prime)
+    
+```
+
+Make means and cis
+```{r}
+net.dat.means= net.dat.plot.long %>% 
+  group_by(site, drought, name) %>% 
+  summarise_if(is.numeric, list(mean = mean, sd = sd))
+
+cis= net.dat.means %>% 
+  mutate(upper = mean + 1.96*(sd/sqrt(999)), lower = mean - 1.96*(sd/sqrt(999)))
+```
+
+
+```{r}
+deg= cis %>% 
+  filter(name== "mean.degree") %>% 
+  ggplot(aes(x= drought, y= mean, color= site))+
+  geom_point()+
+  geom_point(data= net.dat.plot, aes(y= mean.degree), alpha=0.3, position=position_jitterdodge(dodge.width =0.2))+
+  geom_line(aes(group=site))+
+  geom_errorbar(aes(ymin=lower, ymax=upper),width=.1, size=1) +
+  theme_classic()+
+  theme(legend.position = "none")+
+  labs(y= "Links per species", x="")
+
+
+con= cis %>% 
+  filter(name== "connectance") %>% 
+  ggplot(aes(x= drought, y= mean, color= site))+
+  geom_point()+
+    geom_point(data= net.dat.plot, aes(y= connectance), alpha=0.3, position=position_jitterdodge(dodge.width =0.2))+
+    geom_line(aes(group=site))+
+  geom_errorbar(aes(ymin=lower, ymax=upper),width=.1, size=1) +
+  theme_classic()+
+ theme(legend.position = c(0.85, 1.2), legend.justification = "right", legend.title = element_blank(),  legend.direction="horizontal")+
+  labs(y= "Connectance", x="")
+
+nodf= cis %>% 
+  filter(name== "NODF") %>% 
+  ggplot(aes(x= drought, y= mean, color= site))+
+  geom_line(aes(group=site))+
+  geom_point()+
+    geom_point(data= net.dat.plot, aes(y= NODF), alpha=0.3, position=position_jitterdodge(dodge.width =0.2))+
+  geom_errorbar(aes(ymin=lower, ymax=upper),width=.1, size=1) +
+  theme_classic()+
+  theme(legend.position = "none")+
+  labs(y= "NODF", x="")
+
+
+h2= cis %>% 
+  filter(name== "H2prime") %>% 
+  ggplot(aes(x= drought, y= mean, color= site))+
+  geom_point()+
+  geom_point(data= net.dat.plot, aes(y= H2prime), alpha=0.3, position=position_jitterdodge(dodge.width =0.2))+
+  geom_line(aes(group=site))+
+  geom_errorbar(aes(ymin=lower, ymax=upper),width=.1, size=1) +
+  theme_classic()+
+  theme(legend.position = "none")+
+  labs(y= "Quantitative specialization (H2')", x="")
+```
+
+```{r}
+sites= plot_grid(deg, con, nodf, h2, ncol=2 )
+```
+
+### Plot of the 4 network metrics with respect to drought and year
+
+```{r}
+nsamps= 100
+ints = floor(0.85*min(table(dat$year)))
+comboz = length(unique(dat$year.drought))
+
+# create within-loop matrix to store downsampled rows in
+rowz = matrix(data = NA, nrow = comboz, ncol = ints)
+
+# create within-loop results data frame; 6 columns
+# 4 columns for network metrics, plus year and drought
+# start out with just the number of rows for the combination
+network.temp = matrix(data = NA, nrow = comboz, ncol = 6)
+network.temp = data.frame(network.temp)
+names(network.temp) = c("year", "drought", "mean.degree", "connectance", 
+                        "NODF","H2prime")
+
+for(k in 1:nsamps){ # 100
+        for(j in 1:comboz){ # 6
+            # this downsamples (picks rows) 
+            # from each year-drought combo from the data
+            rowz[j,] = sample(which(dat$year.drought==j), size = ints)
+        }
+        # create a dataset by pulling the downsampled rows from the data
+        temp = dat[as.vector(rowz),]
+        # split data by drought / non-drought and year
+        # remove blank rows / columns (if applicable?)
+        for(l in 1:comboz){
+            # pull out one year-drought combo
+            comb = temp[temp$year.drought==l,]
+            # record site and drought status
+            network.temp[l, 1] = comb$year[1]
+            network.temp[l, 2] = comb$drought[1]
+            # turn edge list into matrix
+            tempnet = edge2net(select(comb, finest_ID, plant))
+            # calculate and record network metrics  
+            network.temp[l, 3:6] = calc.metrics(tempnet)
+        }
+        # store data in a new dataframe (if at start of `nsamps` loop),
+        # or else append to existing
+        if(k==1) {net.dat.plot.yr = network.temp} else {
+        net.dat.plot.yr = rbind(net.dat.plot.yr, network.temp)}
+    }
+
+ # pivot_longer
+    net.dat.plot.yr.long = pivot_longer(net.dat.plot.yr, cols = mean.degree:H2prime)
+    
+```
+
+
+Make means and cis
+```{r}
+net.dat.plot.yr.long$year= as.factor(net.dat.plot.yr.long$year)
+
+net.dat.yr.means= net.dat.plot.yr.long %>% 
+  group_by(year, drought, name) %>% 
+  summarise_if(is.numeric, list(mean = mean, sd = sd))
+
+yr.cis= net.dat.yr.means %>% 
+  mutate(upper = mean + 1.96*(sd/sqrt(999)), lower = mean - 1.96*(sd/sqrt(999)))
+```
+
+```{r}
+yr.deg= yr.cis %>% 
+  filter(name== "mean.degree") %>% 
+  ggplot(aes(x= drought, y= mean, color= factor(year)))+
+  geom_point()+
+  geom_point(data= net.dat.plot.yr, aes(y= mean.degree), alpha=0.3, position=position_jitterdodge(dodge.width =0.2))+
+  geom_errorbar(aes(ymin=lower, ymax=upper),width=.1, size=1) +
+  theme_classic()+
+  theme(legend.position = "none")+
+  labs(y= "Links per species", x="")
+
+
+yr.con= yr.cis %>% 
+  filter(name== "connectance") %>% 
+  ggplot(aes(x= drought, y= mean, color= factor(year)))+
+  geom_point()+
+    geom_point(data= net.dat.plot.yr, aes(y= connectance), alpha=0.3, position=position_jitterdodge(dodge.width =0.2))+
+  geom_errorbar(aes(ymin=lower, ymax=upper),width=.1, size=1) +
+  theme_classic()+
+  theme(legend.position = c(0.85, 0.9), legend.justification = "right", legend.title = element_blank(),  legend.direction="horizontal")+
+  labs(y= "Connectance", x="")
+
+yr.nodf= yr.cis %>% 
+  filter(name== "NODF") %>% 
+  ggplot(aes(x= drought, y= mean, color= factor(year)))+
+  geom_point()+
+    geom_point(data= net.dat.plot.yr, aes(y= NODF), alpha=0.3, position=position_jitterdodge(dodge.width =0.2))+
+  geom_errorbar(aes(ymin=lower, ymax=upper),width=.1, size=1) +
+  theme_classic()+
+  theme(legend.position = "none")+
+  labs(y= "NODF", x="")
+
+
+yr.h2= yr.cis %>% 
+  filter(name== "H2prime") %>% 
+  ggplot(aes(x= drought, y= mean, color= factor(year)))+
+  geom_point()+
+  geom_point(data= net.dat.plot.yr, aes(y= H2prime), alpha=0.3, position=position_jitterdodge(dodge.width =0.2))+
+  geom_errorbar(aes(ymin=lower, ymax=upper),width=.1, size=1) +
+  theme_classic()+
+  theme(legend.position = "none")+
+  labs(y= "Quantitative specialization (H2')", x="")
+```
+
+```{r}
+years= plot_grid(yr.deg, yr.con, yr.nodf, yr.h2, ncol=2)
+```
+
+
+
+The remaining items are for analyses found in the supplemental
+
+# Family level analysis
+```{r}
+fam.dat= visitation
+# fill in NAs if we do not have that info in gross_ID and insect_fam 
+fam.dat$gross_ID = ifelse(fam.dat$gross_ID=="", NA, fam.dat$gross_ID)
+fam.dat$insect_family = ifelse(fam.dat$insect_family=="", NA, fam.dat$insect_family)
+
+# create a captured col
+fam.dat$captured = ifelse(is.na(fam.dat$specimen_number) & is.na(fam.dat$insect_family), "False", "True")
+
+# subset for each analysis: we need drought and non-drought split into their own dfs
+
+#make vectors to subset by years
+drought= c(2018, 2020)
+nondrought= c(2016, 2017, 2019)
+
+
+#make family dfs
+
+#here instead we need to filter out things that do not have family info
+family.df=fam.dat %>% 
+  filter(!is.na(insect_family)) %>% 
+  relocate(insect_family,.before= plant) %>% 
+  relocate(transect, .after= last_col()) %>% 
+  relocate(segment, .after= last_col())
+
+fam.drought.df=family.df %>% 
+  filter(year %in% drought) %>% 
+  select(insect_family, plant)
+
+fam.nondrought.df=family.df %>% 
+  filter(year %in% nondrought) %>% 
+  select(insect_family, plant)
+
+fam.nondrought.df
+
+fam.drought.df
+```
+
+
+## Analysis 1: Downsampling without species turnover constraint
+
+```{r fam down unconstrained downsample}
+fam.down.unconstrained= down.net(web.big= fam.nondrought.df, web.small = fam.drought.df, n.rep= 999)
+
+```
+
+``` {r fam  abund pval cleanup}
+# permutation based p
+pvals=data.frame(fam.down.unconstrained$pvals)
+pvals$analysis = "not constrained"
+pvals=pvals %>% 
+  rownames_to_column("metric") %>% # move metric names to a column for easier manipulation and selection
+  mutate(two.tail.p= ifelse(fam.down.unconstrained.pvals< 0.5, fam.down.unconstrained.pvals*2, (1-fam.down.unconstrained.pvals)*2))
+
+names(pvals) <- gsub('.*\\.(.*)\\.(.*)', '\\2', names(pvals))
+```
+
+### Plot 
+Use the premade ggplot based plot function called` down.plot` to plot each metric against its observed drought value. Annotate the p-value onto each plot
+```{r fam abund plot setup}
+down.only.metrics= fam.down.unconstrained$metrics #pull the metric df to a new df all by itself
+  down.only.metrics= down.only.metrics 
+  
+  down.samples = down.only.metrics[-1,] #get rid of the first row since that is the raw data
+  raw = down.only.metrics[1,] #get rid of everything but the raw data
+```
+
+
+```{r fam plot abund downsample}
+
+h2=down.plot(fam.down.unconstrained, "Quantitative Specialization (H2)", pvals) +
+  expand_limits(x = 0.25) + expand_limits(x =0.14) # some are getting cut off so for these lets expand the x limit
+
+nest= down.plot(fam.down.unconstrained, "Nestedness (NODF)", pvals) 
+
+con= down.plot(fam.down.unconstrained, "Connectance", pvals) +
+  expand_limits(x = 0.11)
+
+deg= down.plot(fam.down.unconstrained, "Links per species", pvals) +
+  expand_limits(x = 3)
+```
+
+Use `patchwork`to plot them all together
+```{r fam abund downsample plot layout}
+# network level plots
+fam.all.panal=   deg + con + nest + h2 
+```
+
+Now we wish to understand how much species turnover is driving niche broadening. To do this we'll repeat the above process but now downsample from the overlapping species, ie., the species that were present in both drought and non-drought years.
+
+### Make a common species df
+
+```{r fam create common species df}
+# use dplyr's semi_join to find the overlap of pollinators between the drought & non-drought years
+tmp= semi_join(as.data.frame(fam.nondrought.df), as.data.frame(fam.drought.df), by="insect_family")
+
+# use semi_join again with that tmp df to find the overlap of plants
+overlap.mat= semi_join(as.data.frame(tmp), as.data.frame(fam.drought.df), by= "plant")
+```
+
+```{r fam species filtering}
+# vectors of common species
+plants = intersect(fam.drought.df$plant, fam.nondrought.df$plant)
+polln = intersect(fam.drought.df$insect_family, fam.nondrought.df$insect_family)
+
+# edge lists with only common plants and pollinators
+drought.df.comm = fam.drought.df %>% filter(insect_family %in% polln & plant %in% plants)
+nondrought.df.comm = fam.nondrought.df %>% filter(insect_family %in% polln & plant %in% plants)
+```
+
+```{r fam comm spec net sizes}
+edge2net(drought.df.comm) # drought becomes a net that is 32 plants by 17 pols
+edge2net(nondrought.df.comm) # non drought becomes a net that is 32 plants by 17 pols
+
+setdiff(plants, nondrought.df.comm$plant) #no diff
+
+```
+- drought becomes a net that is 32 plants by 17 pols
+- non drought becomes a net that is 32 plants by 17 pols
+
+
+### Create downsample bootstraps
+
+```{r fam downsample common}
+fam.down.constrained = down.net(nondrought.df.comm, drought.df.comm, n.rep = 999)
+```
+
+### How different from the downsample is the observed values? 
+
+```{r fam comm spp pval cleanup}
+pvals.comm=data.frame(fam.down.constrained$pvals)
+pvals.comm$analysis = "constrained"
+pvals.comm=pvals.comm %>% 
+  rownames_to_column("metric") # move metric names to a column for easier manipulation and selection 
+
+names(pvals.comm) <- gsub('.*\\.(.*)\\.(.*)', '\\2', names(pvals.comm))
+
+# for plotting lets convert values greater than 0.5 to 1-value 
+
+pvals.comm$pvals=ifelse(pvals.comm$pvals >0.5, 1-pvals.comm$pvals, pvals.comm$pvals)
+```
+
+### Plot 
+Plot as before
+```{r fam comm spp plot setup}
+down.only.metrics= fam.down.constrained$metrics #pull the metric df to a new df all by itself
+  down.only.metrics= down.only.metrics 
+  
+  down.samples = down.only.metrics[-1,] #get rid of the first row since that is the raw data
+  raw = down.only.metrics[1,] #get rid of everything but the raw data
+```
+
+
+```{r fam plot comm spp downsample}
+
+h2=down.plot(fam.down.constrained, "Quantitative Specialization (H2)", pvals.comm) 
+
+nest= down.plot(fam.down.constrained, "Nestedness (NODF)", pvals.comm) 
+
+con= down.plot(fam.down.constrained, "Connectance", pvals.comm)
+
+deg= down.plot(fam.down.constrained, "Links per species", pvals.comm) 
+
+```
+
+Plot all together
+```{r fam comm spp plot}
+fam.contrained=deg + con + nest + h2
+```
+
+# Floral Abundance
+
+```{r}
+# make a year column
+#compute year variable and append to the end of site names
+flowers$year <- as.factor(paste("20", sapply(as.character(flowers$date), function(x) unlist(strsplit(x, "/"))[3]), sep = ""))
+
+flowers$total_flowers= as.numeric(flowers$total_flowers) 
+
+count= flowers %>%
+  select (c(site, total_flowers, year)) %>%
+  group_by(site, year) %>%
+  tally(total_flowers)
+
+count%>% 
+  filter(year!="2021") %>% 
+  ggplot(., aes(x= year, y= n))+ 
+  geom_boxplot()+
+  labs(y= "Floral abundance")+
+  theme_classic()
+```
+
+
+# Drought Analysis
+Data is imported from an csv file containing various weather data points from Gothic, obtained from billy barr's website. 
+
+```{r data inport}
+
+#import data
+weatherdf<- read.csv("gothicweather.csv")
+
+# water is in inches so convert to cm
+weatherdf$Watercm= weatherdf$Water * 2.54
+
+
+# classified as drought based on water >50
+weatherdf= weatherdf %>%
+  mutate(Drought_New = ifelse(Watercm<= 50, "Drought", "Non Drought"))
+
+
+#convert non-numeric columns
+  #first for snow start date
+weatherdf$Snow.start.dt= paste(str_sub(weatherdf$Winter,1,4), weatherdf$Snow.start, sep="-")
+weatherdf$Snow.start.dt= strptime(weatherdf$Snow.start.dt, "%Y-%d-%b")
+
+weatherdf$Snow.start.dt=lubridate::yday(weatherdf$Snow.start.dt)
+
+# now for melt out date
+weatherdf$Melt.out.dt= paste(str_sub(weatherdf$Winter,6,8), weatherdf$Melt.out, sep="-")
+weatherdf$Melt.out.dt= strptime(weatherdf$Melt.out.dt, "%y-%d-%b")
+
+weatherdf$Melt.out.dt=lubridate::yday(weatherdf$Melt.out.dt)
+```
+
+Calculate some relevant 30 year averages
+```{r}
+thirty= weatherdf[15:45,]
+
+thirty.averages= thirty %>% 
+  summarise(mean.water= mean(Watercm), mean.tot.snow= mean(Total))
+
+# Percent reduction
+#2018 
+((thirty.averages$mean.tot.snow -490)/ thirty.averages$mean.tot.snow ) *100
+
+(( thirty.averages$mean.water-16.69)/ thirty.averages$mean.water ) *100 
+
+#2020
+((thirty.averages$mean.tot.snow-602)/ thirty.averages$mean.tot.snow ) *100
+
+((thirty.averages$mean.water-19.46)/ thirty.averages$mean.water ) *100
+
+```
+
+These drought years represent a 52 and 41 % decrease in total snow from the 30 year average, in 2018 and 2020 respectively.
+
+Even more severely, the two drought years are 76 and 71% reductions in mean water (30 year average).
+
+For subsequent analyses let's only use data from the recent era relevant to the study period
+
+```{r}
+# remove winters
+weatherdf = weatherdf[c(36:45),]
+
+rownames(weatherdf) =NULL
+
+weatherdf=weatherdf %>% 
+  column_to_rownames("Winter")
+
+cleaned.weather=weatherdf[,-c(4:6, 9, 11)]
+```
+
+
+The matrix needs to be formatted further to fit the form for the NMDS analysis. The drought column needs to be removed from the dataframe containing the rest of the data and put into its own value. 
+
+```{r create df}
+
+# Make drought dataframe
+drought = weatherdf %>% 
+  select(Drought_New)
+```
+
+## NMDS
+Use function metaMDS from vegan
+
+```{r NMDS}
+
+# run a NMDS ordination
+ord <- metaMDS(cleaned.weather)
+```
+
+```{r plotting}
+
+plot(ord, disp="sites", type="n")
+  ordihull(ord, drought, col=c("mediumturquoise", "indianred1"), lwd=3)
+  ordiellipse(ord, drought, draw="polygon", col=c("mediumturquoise", "indianred1"), alpha = c(50, 50))
+  orditorp(ord,display="species",col="black",air=0.01, cex = .8)
+  # orditorp(ord,display="sites", select = sel, col= "black", air=0.01,cex=1)
+  points(ord, display = "sites", cex = 0.5, pch = 3, col = "black")
+plot(data.envfit, col = "black", cex = .5)
+```
+
+This visualization gives several important pieces of information. Green/blue specifies Non-drought and red is Drought. We see that the two areas show no overlap, indicating that the years are different in terms of weather. 
+
+We can also fit our environmental variable, drought, onto the ordination. This visualizes how the differences in weather between years are impacted by drought. It will also give us what percent of the variation can be explained by drough categorization.
+
+```{r}
+data.envfit <- envfit(ord, drought, lwd = 2)
+plot(data.envfit, col = "black", cex = .5)
+data.envfit
+```
+
+## PERMANOVA
+Via Adonis. Here we are using Morisita-Horn.
+
+```{r}
+dist.mat <- vegdist(cleaned.weather, method = "horn")
+```
+
+
+```{r}
+permtab= adonis(dist.mat ~ Drought_New, drought, perm = 999)
+
+write.csv(permtab$aov.tab, "adonis.tab.csv")
+```
+
+Drought is highly significant! Our drought catagorization matches multivariate composites of many weather variables.
+

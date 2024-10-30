@@ -948,3 +948,16 @@ ggplot(megatable, aes(x=percent_nitrogenous, y=percent_lycaenidae, color=number_
 
 ```
 
+# Drought-net test run
+
+## visitation rate
+Does visitation rate differ between the treatments? 
+Part 1 - species level
+```{r}
+
+net.long 
+
+
+
+```
+
