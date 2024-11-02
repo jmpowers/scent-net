@@ -68,7 +68,8 @@ species_colors <- c(
   "eriogonum_umbellatum" = "#E69F00",  # Orange (high contrast)
   "collomia_linearis" = "#882255",  # Dark Pink (instead of Black)
   "galium_boreale" = "#999933",  # Olive Green (distinct from other greens)
-  "heterotheca_villosa" = "#117733"  # Dark Teal (instead of Brown)
+  "heterotheca_villosa" = "#117733" , # Dark Teal (instead of Brown), 
+  "heliomeris_multiflora" = "darkred"
 )
 
 
@@ -161,7 +162,12 @@ flowercount.summary <- flowercounts %>%
     left_join(rainout.treatments) %>% 
     group_by(week_num, treatment, plant) %>% summarise(flower_number=sum(flower_number)) 
 
-ggplot(flowercount.summary, aes(y=flower_number, x= paste(week_num, treatment), fill=plant)) +geom_col() + scale_x_discrete(guide = guide_axis(angle=90)) + scale_fill_manual(values = species_colors)
+gg.flowercount <- ggplot(flowercount.summary, aes(y=flower_number, x= paste(week_num, treatment), fill=plant)) +geom_col() + scale_x_discrete(guide = guide_axis(angle=90)) + scale_fill_manual(values = species_colors)
+print(gg.flowercount)
+#Helianthella quinquenervis
+
+
+ggsave(gg.flowercount, file='flowercount.summary.jpg', width=130, height=105, units= 'mm', dpi=600)
 
 #TODO: clean up repeat species in flowercount.summary
 
@@ -171,7 +177,10 @@ ggplot(flowercount.summary, aes(y=flower_number, x= paste(week_num, treatment), 
 #boxplot for each species and week
 ```{r}
 
-ggplot(flowercounts %>% left_join(rainout.treatments), aes(x=week_num, y=flower_number, color=treatment)) + facet_wrap(vars(plant), scales="free_y") + geom_boxplot() + scale_color_manual(values=dnet.color.palette)
+boxplot.flowercount <- ggplot(flowercounts %>% left_join(rainout.treatments), aes(x=week_num, y=flower_number, color=treatment)) + facet_wrap(vars(plant), scales="free_y") + geom_boxplot() + scale_color_manual(values=dnet.color.palette)
+
+print(boxplot.flowercount)
+ggsave(boxplot.flowercount, file='boxplot.flowercount.jpg', width=130, height=105, units= 'mm', dpi=600)
 ```
 
 #line plot
@@ -216,6 +225,7 @@ plant.insect.nonzero.list <- vrate.summary.treatment %>% group_by(plant_insect_c
 ggplot(vrate.summary.treatment %>% filter(plant_insect_class%in%plant.insect.nonzero.list$plant_insect_class), #filters column plant_insect_class but the list of plant x pollinator combinations with visits per flower per hr greater than 0 (which means there is data for them)
             aes(x=week_num, y=visitsperflowerperhr, color=treatment, group = treatment)) + facet_grid(insect_class~plant, scales="free_y") + geom_point() + geom_line()+ scale_color_manual(values=dnet.color.palette)
 
+
 #anova prep: 
 
 vrate.summary.treatment.transect <- vrate.flowercount %>% left_join(rainout.treatments) %>% #adds treatments
@@ -253,6 +263,8 @@ vrate.anova.model <- vrate.summary.treatment.transect %>%
 #NaN means there is not enough data for the model, you can ignore warning in console this is also the reason (not enough data for some plant insect combos)
 
 View(vrate.anova.model)
+
+
   
 #TODO: we are having issues with how to compare visitation to a plant species when flowering phenology is different between transects and treatments. 
 #issue making sure plant species is flowering/open at the same time in each transect - could restrict the data that the plant has to be open in both transects in order to look at the number of visits
@@ -335,6 +347,32 @@ View(regression.anova)
 ```
 
 #TODO: clean poll obs dataset -  fix galium 500; what is bee vs solitary bee?
+
+# anova model google sheet storage
+```{r}
+
+#first need to make anova model output into a data frame
+vrate_anova_df <- tidy(vrate.anova.model)
+insect_class_anova_df <- tidy(insect.class.anova)
+plant_anova_df <- tidy(plant.anova)
+regression_anova_df <- tidy(regression.anova)
+
+write.csv(vrate_anova_df)
+write.csv(vrate_anova_df, "Desktop/scent-net/vrate_anova_model.csv", row.names = FALSE)
+
+
+#next create googel sheet
+
+anova.google.sheet <- gs4_create(
+  "Droughtnet anova outputs",
+  sheets = list(
+    Sheet1 = vrate_anova_df,
+    Sheet2 = insect_class_anova_df,
+    Sheet3 = plant_anova_df,
+    Sheet4 = regression_anova_df
+  )
+)
+```
 
 
 # Network 
@@ -432,7 +470,7 @@ downsample.function <- function(manipulation, downsample.rows){
             
                         }
 
-stats.downsample <- tibble(permutation=rep(1:99, times=2), treatment=rep(c("control", "rainout"), each=99)) %>% 
+stats.downsample <- tibble(permutation=rep(1:999, times=2), treatment=rep(c("control", "rainout"), each=999)) %>% 
               mutate(stats= map(treatment, ~downsample.function(.x, downsample.rows))) %>% unnest(stats)
 
 # Links per species plot (species = insect class and size)

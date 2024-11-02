@@ -141,7 +141,23 @@ vol <- vol / as.numeric(meta$equil + meta$pumping, units="hours")# / meta$amount
 scent.net <- bind_cols(vol, meta) %>% group_by(species) %>% summarise(across(all_of(colnames(vol)), mean)) 
 
 write_csv(scent.net, "data/Volatiles_by_species_mean.csv")
+
+
 ```
+
+
+#volatiles by species mean FAKE treatments
+```{r}
+#create fake treatments for all VOCs so that we can create a fake scent-network
+scent.net.fake.treatments <- bind_cols(vol, meta) %>% 
+                  group_by(species) %>%  filter(n()>1) %>% #drops plants with only 1 sample
+                  mutate(treatment=rep_len(c("wet_fake","dry_fake"),length.out= n())) %>%  #alternately assigns treatments to all rows in meta so that each treatment has at least one of each species sampled
+                  group_by(species, treatment) %>%
+                  summarise(across(all_of(colnames(vol)), mean)) 
+
+write_csv(scent.net.fake.treatments, "data/VOC_fake_treatments.csv")
+```
+
 
 # Heatmap
 

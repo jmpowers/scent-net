@@ -60,7 +60,7 @@ snet <- sortweb(net) #sort by row & column totals; sorted rows by rowsums and co
 
 #Go to comm_vols for code to make scent.net
 #Loads in vol, filters with bouquet, takes mean of each voc for each species 
-#From comm_vols.Rmd
+#From comm_vols.Rmd 
 scent.net <- read_csv("data/Volatiles_by_species_mean.csv") %>% column_to_rownames("species") %>% #species are now rownames
     as.matrix()   #network analysis likes matrix 
     
@@ -955,8 +955,47 @@ Does visitation rate differ between the treatments?
 Part 1 - species level
 ```{r}
 
-net.long 
 
+
+
+
+```
+
+# VOC-pollinator network with fake treatments
+
+```{r}
+#first make treatments, assign vocs to treatments and poll to treatments - go to comm_vols rmd
+#create fake networks by treatment
+
+fake.wet.scent.net <-  read_csv("data/VOC_fake_treatments.csv") %>% filter(treatment=="wet_fake") %>% #only keep wet_fake treatment
+            select(-treatment) %>%  #drops treatment column
+            column_to_rownames("species") %>% #species are now rownames
+            as.matrix() 
+
+fake.wet.scent.net.cut <- fake.wet.scent.net[rownames(fake.wet.scent.net)%in% paulsplants, ] 
+
+fake.wet.plantcompoundemission <- fake.wet.scent.net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% #average peak area
+  pivot_longer(-plant, names_to = "compound", values_to = "emissions") %>% filter(emissions!=0)
+
+# make treatments for plant pollinator visits
+
+fake.wet.net <- net.long %>% filter(site=="shady_point") %>%  #assigns wet treatment as shady point 
+              select(plant, pollinator, interactions) %>% 
+              pivot_wider(names_from = plant, values_from = interactions, values_fn= sum, values_fill= 0) %>%  #pivots data set longer so plants as columns and pollinators as rows, replaces NAs with zeros
+    column_to_rownames("pollinator") #pollinators are in first column, makes them into rownames; #deletes the first pollinators column
+
+fake.wet.net <- as.matrix(t(fake.wet.net)) # turns it from dataframe to matrix bc packages like matrix; t transposes (turns dataset sideways - rows -> columns; columns -> rows) 
+
+
+fake.wet.net.cut <- fake.wet.net[bothplants,] #TODO: one of the sites has less plants than the other
+
+plantpollinatorvisits <- net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% pivot_longer(-plant, names_to = "pollinator", values_to = "visits")
+
+
+
+##
+
+scentpollnet <- left_join(plantcompoundemission, plantpollinatorvisits,relationship = "many-to-many") %>%  group_by(pollinator, compound) %>% summarise(visits=sum(visits)) %>%  pivot_wider(names_from = "compound", values_from = "visits") %>% column_to_rownames("pollinator") %>% as.matrix()
 
 
 ```
