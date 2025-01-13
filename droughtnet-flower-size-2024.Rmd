@@ -39,7 +39,9 @@ rainout.treatments <- read_sheet("13J7QB2i9mxBsIlbdRu0zL7YKLHL-Wgd-bN3LngkiZww")
 
 flower.size <- read_sheet("1fJuFDOMitdC6bdTm12XWBTZpX4u15uHdkf0y-Ilelw4") %>% 
   mutate(plot = tolower(as.character(plot))) %>% 
-  left_join(rainout.treatments) %>% drop_na() 
+  left_join(rainout.treatments) %>% drop_na() %>% 
+   filter(!plant%in% c("micro white?!", " micro white", "pakera") )
+# filter(!plant%in% c("micro white?!", " micro white", "pakera", "campanula", "collomia", "sedum", "subalpinium") )
 #%>% mutate(plant= fct_recode(plant, "gallium"="boreale" ))
 
 #table of # of plant species in each treatment
@@ -50,6 +52,8 @@ flower.size.means <- flower.size %>%
     group_by(transect, plant, plot) %>% #takes mean for each plant (i.e. agg 1)
     summarise(across(c(depth, length, width, inflo_height),
               ~mean(.x, na.rm=TRUE))) 
+
+
 ```
 
 #model all traits
@@ -81,10 +85,10 @@ plot.traits <- flower.size %>%
     pivot_longer(all_of(all.morph.traits), names_to = "trait") %>% 
     #filter(trait%in% c("corolla_length", "max_anther")) %>% 
     ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
-    facet_wrap(vars(trait),scales = "fixed", labeller=as_labeller(c(depth="Nectar Depth", length= "length", width="width", inflo_height="Info Height")))+
-    labs(y="", x="plant", color="treatment") +
+    facet_wrap(vars(trait),scales = "free_y", labeller=as_labeller(c(depth="Nectar Depth", length= "Flower Length", width="Flower Width", inflo_height="Inflorescence Height")))+
+    labs(y="", x="Plant Species", color="Treatment") +
   scale_color_manual(values = c("skyblue","orange"))+
-  theme_minimal()+
+  theme_minimal()+ theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   theme(panel.grid.major.x = element_blank(), legend.position = "bottom")
   #scale_y_continuous(limits=c(0, NA))
 

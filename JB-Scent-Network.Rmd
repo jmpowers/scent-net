@@ -31,17 +31,23 @@ library(dendextend)
 library(tidyverse)
 library(heatmaply)
 library(googlesheets4)
+library(dplyr)
+#to make phylogenetic tree
+#remotes::install_github("jinyizju/U.PhyloMaker")
+library(U.PhyloMaker)
+
 
 ```
 
 #load network
 ```{r, data}
 #load network
-setwd("~/Desktop/Scent-Net")
+setwd("~/Desktop/scent-net")
 gs4_auth(email=TRUE)
 net.long <- read_sheet("1plhxbVh5IQLNVMazqO4OvfM3X6vbll_Y6BTMJ94bkI4", na=c("","na", "NA")) %>%    
       mutate(pollinator_group= if_else(pollinator=="papilio_gothica", "butterfly", pollinator_group)) %>% #fix papilio_gothica from bee -> butterfly
-      mutate(plant= recode(plant,senecio_tall_int = "senecio_integerrimus", agoceris_glauca = "agoseris_glauca", agoceris_aurantiaca="agoseris_aurantiaca", hydrophyllum_fendeleri="hydrophyllum_fendleri"))
+      mutate(plant= as.character(plant)) %>% 
+      mutate(plant= dplyr::recode(plant, senecio_tall_int = "senecio_integerrimus", agoceris_glauca = "agoseris_glauca", agoceris_aurantiaca="agoseris_aurantiaca", hydrophyllum_fendeleri="hydrophyllum_fendleri"))
 
 
 
@@ -77,28 +83,35 @@ voc.class.colors <- setNames(brewer.pal(7,"Set3"), levels(compound.class$major_c
 ```
 
 ##match paul's plants with the plants we have vocs for
+
+Pauls p-p data and Amanda and Lucus's VOC data have different plants. We need to create a list of plants that occurs in both the p-p network and has VOC data. 
 ```{r, "match paul's plants with the plants we have vocs for" }
 scentplants<-rownames(scent.net) #%>% tolower() %>%  str_replace(" ", "_")
 
 paulsplants <- plants
 
 #plants not in both datasets 
-setdiff(scentplants, paulsplants) #gives us bonus plants
-setdiff(paulsplants, scentplants) 
+setdiff(scentplants, paulsplants) #gives us bonus plants with VOCs
+setdiff(paulsplants, scentplants) #gives up plants that are in Paul's data set but don't have VOCs collected
 
+#plants that have p-p interaction data and scent data
 bothplants <- intersect(scentplants, paulsplants) #plants found in amanda and paul data
 ```
 
 
 # Pollinator groups and family
 
+Creates dataframes for pollinator class, family and orders. Makes net.cut and scent.net.cut which is the plant-pollinator network and scent-network with plants that are found in both data sets (has p-p interaction data and scent data)
 ```{r, Pollinator groups and family}
+#Creates dataframes for pollinator class, family and orders.
 polls.count <-count(net.long, pollinator_group,pollinator_family, pollinator) #counting number of rows for each pollinator
 polls.class <- tibble(pollinator=polls) %>%  left_join(polls.count) %>% pull(pollinator_group)
 polls.class.dataframe <- tibble(pollinator=polls) %>%  left_join(polls.count)
 polls.family <- tibble(pollinator=polls) %>%  left_join(polls.count) %>% pull(pollinator_family)
 polls.order.all <- polls.class
 
+
+#Makes net.cut which is the plant-pollinator network with plants that are found in both data sets (has p-p interaction data and scent data)
 #net.grp.all has all of pauls 45 plant species 
 #net.grp only has plant species found in Amanda's and paul's datasets
 net.grp.all <- aggregate(.~ polls.class, as.data.frame(t(net)), sum) #lump network by pollinator class; plants columns, pollinators rows
@@ -107,17 +120,31 @@ net.grp.all[,1] <- NULL
 net.grp.all <- as.matrix(t(net.grp.all)) #transposes matrix
 net.grp<- net.grp.all[bothplants,] 
 
+#make net.family 
+net.family.all <- aggregate(.~ polls.family, as.data.frame(t(net)), sum) #lump network by pollinator class; plants columns, pollinators rows
+rownames(net.family.all) <- net.family.all[,1] #make plants rows, pollinators column names
+net.family.all[,1] <- NULL
+net.family.all <- as.matrix(t(net.family.all)) #transposes matrix
+net.family<- net.family.all[bothplants,] 
+
 net.cut <- net[bothplants,]
+
+#creates scent-network of plants found in both data sets  (has p-p interaction data and scent data)
+scent.net.cut <- scent.net[rownames(scent.net)%in% paulsplants, ] #cuts scent to match what paul has pollinator data for
 
 ```
 
 
 # Plant-pollinator network
 
-##Pollinator groups
+# Major pollinator groups
+creates dataframe with plants and their major pollinator group. Major pollinator is determined as the pollinator group that made 50% of visits to that plant species. assigns colors to pollinator groups and major pollinator groups for data visualization later on. 
 ```{r, pollinator groups}
-#Tells you plants major pollinator
+#Tells you plants major pollinator (pollinator group that makes up 50% of visits to that plant)
 plants.majorpoll <- setNames(factor(colnames(net.grp)[apply(net.grp, 1, which.max)]), rownames(net.grp))
+
+#tells you plants major pollinator family 
+plants.pollfam <- setNames(factor(colnames(net.family)[apply(net.grp, 1, which.max)]), rownames(net.family))
 
 #sets colors for ALL 5 pollinator groups
 pcols.all <- setNames(brewer.pal(5,"Set2"), colnames(net.grp))
@@ -128,18 +155,41 @@ pcols <- pcols.all[ levels(plants.majorpoll)]
 ```
 
 # Proportion of visits by pollinator group
+What proportion of each pollinator group visit each plant species?
+
+calculates proportion of visits out of the total visits made by each pollinator group (bee, fly, butterfly, wasp) by dividing the number of visits from a pollinator group in net.grp by the total visits in net.grp. x-axis Index= the plant species 1-45. Each circle is a plant species; y-axis = the percentage that plant species is visited by that pollinator group (1.0 = 100% of visits come from bees, 0= no visits from bees)
 ```{r, Proportion of visits by pollinator group}
 #gives % bee pollination for each plant species 
 plants.bees <- net.grp[,"bee"]/rowSums(net.grp)
 plot(sort(plants.bees))
 
-scent.net.cut <- scent.net[rownames(scent.net)%in% paulsplants, ] #cuts scent to match what paul has pollinator data for
-
+#### Poll group caps #####
 # Cap of plants.bees
 plant.bee.cap <- capscale(sqrt(scent.net.cut)~plants.bees)
 anova(plant.bee.cap)
-#p=0.348
+#p=0.09
 plot(plant.bee.cap, type="text")
+
+
+# Cap of plants.fly
+plants.fly <- net.grp[,"fly"]/rowSums(net.grp)
+plant.fly.cap <- capscale(sqrt(scent.net.cut)~plants.fly)
+anova(plant.fly.cap)
+#p=0.46
+
+# Cap of plants.butterfly
+plants.butterfly <- net.grp[,"butterfly"]/rowSums(net.grp)
+plant.butterfly.cap <- capscale(sqrt(scent.net.cut)~plants.butterfly)
+anova(plant.butterfly.cap)
+#p=0.54
+
+# Cap of plants.hummingbird
+plants.hummingbird <- net.grp[,"hummingbird"]/rowSums(net.grp)
+plant.hummingbird.cap <- capscale(sqrt(scent.net.cut)~plants.hummingbird)
+anova(plant.hummingbird.cap)
+#p=0.104
+
+###### Proportion of visits #######
 
 #gives % fly pollination for each plant species 
 plants.fly <- net.grp[,"fly"]/rowSums(net.grp)
@@ -162,7 +212,7 @@ plot(sort(plants.wasp))
 sort(plants.wasp)
 ```
 
-
+# Which plants have the most similar pollinators?
 ##Heatmap1
 ```{r, pp-heatmap, fig.asp=1}
 
@@ -183,7 +233,9 @@ heatmaply(net, scale="none", showticklabels = c(F,T), margins= c(0,NA,0,0),
 visweb(net, type="nested", circles=T, boxes=F, circle.max=1.2)
 ```
 
-##Web plot
+# Web plot - bipartite network for p-p
+
+Creates a bipartite network for plant-pollinator interactions
 ```{r webplot, fig.height=15, fig.width=18}
 
 #fix names of species (plants rows, polls cols)
@@ -212,15 +264,16 @@ ggsave(plant.pollinator.network, file='plant.pollinator.networkplot.jpg', width=
 #write_csv(enframe(scentnetworkstats), "data/scent network stats.csv")
 scentnet.stats <- read_csv("data/scent network stats.csv")
 
-#the network statistics null model: TODO- broken
+#the network statistics null model:
+#TODO: move after scentpollnet
 #network.nullmodel<-nullmodel(scentpollnet) 
 #nullmodel.stats<- map(network.nullmodel, ~networklevel(.x )) #network.nullmodel[1:2]; index=c("NODF", "weighted NODF", "connectance", "H2", "modularity Q")
 
 #nullmodel.stats %>% map_dfr(~enframe(.x), .id = "run") %>% write_csv("data/scent network null model statistics.csv")
 nullmodel.stats <- read_csv("data/scent network null model statistics.csv")
 
-#idea - pivot wider so network properties are the columns, rows are run number, then average by values in column -> pivot longer or store in new variable
-#nullmodel.stats %>% pivot_wider(names_from = "Name", values_from = "Value") %>% column_to_rownames("stats") %>% as.matrix()
+#Runs are rows (1000 permutations), columns are network stats for each run
+nullmodel.wide <- nullmodel.stats %>% pivot_wider(names_from = "name", values_from = "value") %>% column_to_rownames("run") %>% as.matrix()
 
 null.NODF <- read_csv("data/scent network null model statistics.csv") %>% filter(name=="NODF")
 ggplot(null.NODF, aes(x=value))+ geom_histogram() + geom_vline(aes(xintercept=filter(scentnet.stats, name=="NODF") %>% pull(value)))
@@ -232,6 +285,8 @@ ggplot(null.NODF, aes(x=value))+ geom_histogram() + geom_vline(aes(xintercept=fi
 ```{r scent-net heatmap.s, fig.asp=1}
 scent.net.cut <- scent.net[rownames(scent.net)%in% paulsplants, ] #cuts scent to match what paul has pollinator data for
 plants.majorpoll.cut <- plants.majorpoll[rownames(scent.net.cut)] #cuts Pauls data to match Amanda's
+
+plants.pollfam.cut <-  plants.pollfam[rownames(scent.net.cut)] #cuts Pauls data to match Amanda's
 
 plants.bees.cut<- plants.bees[rownames(scent.net.cut)]
 
@@ -262,22 +317,39 @@ View(as.matrix(distance.matrix.pp))
 #can do correlation, if scent similarity predicts pollinator --> mantel test
 mantel(distance.matrix,distance.matrix.pp)
 
-#TODO: group by family then rerun vegdist
-
 distance.matrix.pollgroup <- vegdist(net.grp)
 mantel(distance.matrix, distance.matrix.pollgroup) 
 #can't predict which pollinator group will visit plant based on VOCS
 
+#can scent similarity predict pollinator family
+distance.matrix.pollfam <- vegdist(net.family)
+mantel(distance.matrix, distance.matrix.pollfam)
 
-#relative amounts of visits from pollinator groups 
+#relative amounts of visits from pollinator groups (not relative amount of scent)
 distance.matrix.pollgroup.relative <- vegdist(decostand(net.grp, method="tot"))
 mantel(distance.matrix, distance.matrix.pollgroup.relative) 
 
 #similarity of the relative amounts of scent of each plant
 distance.matrix.relative <- vegdist(sqrt(decostand(scent.net.cut, method="tot")))
 
-#is similarity of the relative amounts of scent of each plant correlated with the similarity in relative visits from each pollinator group
+#is similarity of the relative amounts of scent of each plant correlated with the similarity in relative visits from each pollinator group - use this one
+#relative amounts of scent = scent composition (all emission rates/total emissions)
+# pollinator (group) composition = relative amounts of pollinator visits
+#does scent composition predict pollinator group composition?
 mantel(distance.matrix.relative, distance.matrix.pollgroup.relative)
+
+relative.scent.pollgrp.mantel <- data.frame(x=as.vector(as.matrix(distance.matrix.pollgroup.relative)), y=as.vector(as.matrix(distance.matrix.relative)))
+relative.scent.pollgrp.mantel  <- relative.scent.pollgrp.mantel [relative.scent.pollgrp.mantel$x!=0,]
+
+ggplot(relative.scent.pollgrp.mantel, aes(x=x,y=y)) +geom_point()+geom_smooth() +labs(x="Pollinator Group Composition Distance", y="Scent Composition Distance")
+nozero.phenologyscent.mantel <- data.frame(x=as.vector(phenology.dist.overlap), y=as.vector(as.matrix(scent.net.cut.dist)))
+nozero.phenologyscent.mantel <- nozero.phenologyscent.mantel[nozero.phenologyscent.mantel$x!=0,]
+
+
+
+#how similar are the plants in terms of the relative pollinator composition - use this one
+distance.matrix.pp.relative <- vegdist(decostand(net.cut, method="tot"))
+mantel(distance.matrix.relative,distance.matrix.pp.relative)
 
 
 #No correlation between scent similarity and similarity of the proportion of visits by pollinators or pollinator group (p> 0.1)
@@ -317,6 +389,12 @@ text(scent.op, what="sites", cex=0.8, col=pcols[plants.majorpoll])
 ```{r, cap}
 scent.cap <- capscale(sqrt(scent.net.cut)~plants.majorpoll.cut)
 anova(scent.cap)
+#p=0.2
+
+#by pollinator family 
+scent.cap.pollfam <- capscale(sqrt(scent.net.cut)~plants.pollfam.cut)
+anova(scent.cap.pollfam) 
+#p= 0.2
 
 plot(scent.cap, type="text")
 ```
@@ -374,6 +452,7 @@ ggsave(shannon.compound.plot, file='shannon.compound.plot.jpg', width=110, heigh
 (numcompounds.plot <-ggplot(scent.diversity, aes(y=numcompounds, x=plants.majorpoll.cut))+
     geom_point()+ geom_smooth())
 ggsave(numcompounds.plot, file='numcompounds.plot.jpg', width=110, height=105, units= 'mm', dpi=300)
+
 
 (sumcompounds.plot<- ggplot(scent.diversity, aes(y=sumcompounds, x=plants.majorpoll.cut))+
     geom_point()+ geom_smooth())
@@ -791,7 +870,7 @@ ggplot(phenology, aes(x=week_num, y=flower_count, fill= plant )) + geom_col() + 
 ggplot(phenology, aes(x=week_num, y=plant, fill= sqrt(flower_count ))) + geom_tile() + scale_fill_viridis_c()  + facet_wrap(vars(year))
 
 #pollinators#
-
+# pollinator activity using stacked bar plots, where the x-axis represents the week number, the y-axis represents the number of interactions, and the fill color represents the pollinator species.
 ggplot(net.long, aes(x=week_num, y=interactions, fill= pollinator )) + geom_col() + scale_fill_manual(values=sample(rainbow(93))) +facet_wrap(vars(year))
 
 #heatmap
@@ -825,15 +904,81 @@ scentxphenology[is.nan(scentxphenology)] <- 0
 #ggplot likes long format
 scent.phenology <- scentxphenology %>% as.data.frame() %>%  rownames_to_column("yearweek") %>% separate(yearweek, into = c("year", "week_num")) %>% mutate(year=as.integer(year), week_num= as.integer(week_num)) %>%  pivot_longer(all_of(colnames(scent.net)))
 
-ggplot(scent.phenology, aes(x=week_num, y=value, fill= name )) + geom_col() + scale_fill_manual(values=sample(rainbow(355)), guide="none") +facet_wrap(vars(year))
+ggplot(scent.phenology, aes(x=week_num, y=value, fill= name )) + geom_col() + scale_fill_manual(values=sample(rainbow(510)), guide="none") +facet_wrap(vars(year))
 
 #stack bar plot of scent compounds in each plant species (gives total emission of each compound in each plant species)
-ggplot(scent.net.long, aes(x=emissions, y=plant, fill= compound )) + geom_col() + scale_fill_manual(values=sample(rainbow(354)), guide="none") 
+ggplot(scent.net.long, aes(x=emissions, y=plant, fill= compound )) + geom_col() + scale_fill_manual(values=sample(rainbow(510)), guide="none") 
 
 
 #heatmap - scent x phenology
 ggplot(scent.phenology, aes(x=week_num, y=name, fill= sqrt(value ))) + geom_tile() + scale_fill_viridis_c()  + facet_wrap(vars(year))
 ```
+
+#Do co-flowering plants make more or less similar VOCs? 
+```{r}
+#Mantel test, scent similarity matrix and phenology similarity matrix 
+
+#plants in both scent.net and have phenology data
+phenology.scent.bothplants <- intersect(rownames(scent.net), unique(phenology$plant))
+
+#scent similarity matrix:
+scent.net.cut.dist <- vegdist(scent.net[phenology.scent.bothplants,]) #default is bray curtist distance
+
+#phenological similarity matrix:
+
+flower.per.week.wide <- flowers.per.week %>% group_by(year, week_num) %>% 
+        pivot_wider(names_from = c(year,week_num), values_from = flower_count, values_fill = 0) %>% 
+        filter(plant%in%phenology.scent.bothplants) %>% 
+        arrange(match(plant, rownames(scent.net)))%>%  #matches scent.net plant order
+        column_to_rownames("plant")  %>% as.matrix()
+
+relative.flower.per.week.max <- flower.per.week.wide/apply(flower.per.week.wide, 1, max) 
+#for a given species, ranges between 0 and 1 where 1 is max flowering
+#divides all things in the row by max flower number for each week
+
+phenology.dist.cor <- as.matrix(1-cor(t(relative.flower.per.week.max))) #0 = total phenology overlap, 1= no corelation, 2= anti-corelation exactly opposite each other
+heatmap(phenology.dist.cor, scale="none")
+
+#mantel test
+mantel(scent.net.cut.dist, phenology.dist.cor) #pvalue = 0.001; mantel statistic r = 0.18 which means theres a positive correlation --> flowers that flower together make similar scents
+#limitation: phylogeny; could be flowering together bc they are related
+#TODO: phylogeny; do 3 way mantel with phylogeny to see if they are still correlated 
+
+plot(x=as.vector(as.matrix(scent.net.cut.dist)), y=as.vector(phenology.dist.cor))
+
+############# USE THIS ONE (not phenology.dist.cor)##############
+
+#Phenology overlap in each week (finding overlap of relative flowering curves for each species)
+relative.flower.per.week.sum <- flower.per.week.wide/apply(flower.per.week.wide, 1, sum)
+
+library(proxy)
+#finds the area of overlap in flowering divided by the total area (total area =1) 
+#if totally overlapping = 1; no overlap = 0
+#disimilarity matrix
+overlap.integral <- function(x,y){ #x is the whole row of a plant, y is a whole col of plant and all add to 1
+                     1- sum(pmin(x,y))/1 #minimum for every plant. ; when you divide by the total (in this case 1) its called the density
+  
+}
+phenology.dist.overlap <- proxy::dist(relative.flower.per.week.sum, method=overlap.integral) %>% as.matrix()
+heatmap(phenology.dist.overlap, scale="none") #clustered by early and late blooming species
+
+mantel(scent.net.cut.dist, phenology.dist.overlap)
+#mantel test ignores the 0s at the diagonal 
+#pvalue=0.002
+#delete 0s on diagonal
+nozero.phenologyscent.mantel <- data.frame(x=as.vector(phenology.dist.overlap), y=as.vector(as.matrix(scent.net.cut.dist)))
+nozero.phenologyscent.mantel <- nozero.phenologyscent.mantel[nozero.phenologyscent.mantel$x!=0,]
+
+ggplot(nozero.phenologyscent.mantel, aes(x=x,y=y)) +geom_point()+geom_smooth() +labs(x="Phenology Distance", y="Scent Distance")
+
+
+#test to see if plants are the same in both matrices
+#setdiff(rownames(scent.net.cut), rownames(relative.flower.per.week))
+#test to see if rownames in both matrices are the same
+#rownames(as.matrix(scent.net.cut.dist)) == rownames(as.matrix(phenology.dist.cor))
+```
+
+
 
 # Mega table
 ## flower and poll traits
@@ -864,15 +1009,35 @@ weighted.scent.rarity <- scent.net.long %>% left_join(compound.rarity) %>% group
             mutate(emissions=emissions/sum(emissions)) %>%  #makes emissions -> relative emissions    
             mutate(weighted_scent_rarity = emissions*rarity) %>% #multiplies emissions x rarity to get weighted average
             summarise(weighted_scent_rarity= sum(weighted_scent_rarity)) #then add the different parts of the average
- #rarity score of 1 means this compound is found in all the plant species, 0= no other species has these compounds 
+ #rarity score (aka commoness of that compound) of 1 means this compound is found in all the plant species, 0= no other species has these compounds ; qualitative how many unique compounds does each plant make
 #mertensia has 0.70 rarity - the weighted average of all the compounds rarity; 70% of compounds (or total emissions) are shared, 30% of compounds or total emissions other species don't have
 
+#########
+#How does floral scent uniqueness contribute to the structure of networks? Each plant gets a uniqueness score for its scent and then you make modules based on these scores and interactions with pollinators?
+volxmeta <- read_csv("data/volxmeta.csv") #import vol and metadata from comm_vols.rmd
 
+#betadisper(vegdist(decostand(volxmeta[,colnames(scent.net)], method="tot")), group = volxmeta$species) #how much variation in each species, average distance to median for each plant; uniqueness on the composition
+
+#distance of each sample to the center of the cloud of all species
+uniqueness.score <- betadisper(vegdist(sqrt(decostand(volxmeta[rep(1:nrow(volxmeta), times=2),colnames(scent.net)], method="tot"))), group = rep(1:2, each=nrow(volxmeta)))$distances[1:nrow(volxmeta)]
+#duplicates data and runs analysis on the first "group" and the second group and will give the same result twice; bc betadisper needs more than 1 group
+#distances is the uniqueness score for all the samples
+#sqrt makes nmds look nicer, makes vocs less skewed before calculating distances
+
+#mean of distances scores (aka uniqueness score) for each species
+average.uniqueness.score <- volxmeta %>%  mutate(uniqueness.score= uniqueness.score) %>% group_by(species) %>% summarise(uniqueness.score=mean(uniqueness.score)) %>% rename(plant="species") 
+#uniqueness score give qant 
+
+#look at correlation table below, uniqueness score and number pollspecies visited not correlated 
+#############
 
 scent.summary <- tibble(plant=rownames(scent.net), total_emissions= rowSums(scent.net), number_compounds=rowSums(scent.net>0),scent_shannon_diversity= diversity(scent.net, index="shannon")) %>%
   left_join(weighted.scent.rarity) %>%     
-  left_join(compound.class.percentage) 
+  left_join(compound.class.percentage) %>% 
+  left_join(average.uniqueness.score)
 ```
+
+
 
 ### floral traits summary
 ```{r, floral traits megatable}
@@ -912,10 +1077,12 @@ flower.visitor.summary <- tibble(plant=rownames(net), total_visits= rowSums(net)
 megatable <- scent.summary %>% full_join(flower.visitor.summary) #full join bc pauls data and scent data plants don't match
 ```
 
+
 # Correlations
 ## Plot 1 - heatmap of correlation table
 ## Plot 2 - weighted scent and weighted pollinator visits correlation scatter plot
 ## Plot 3 - percent_hesperiidae x nitrogenous vocs correlation scatter plot
+## Plot 4 - Scent uniqueness score x number of poll species that visited
 ```{r, correlations}
 library(pheatmap)
 library(smatr)
@@ -939,14 +1106,17 @@ summary(sma.weighted.scent.poll)
 #percent_hesperiidae x nitrogenous vocs
 ggplot(megatable, aes(x=percent_nitrogenous, y=percent_lycaenidae, color=number_pollspecies_visited)) + geom_point()+geom_smooth() + geom_text(aes(label=plant))
 
+#Each plant gets a uniqueness score for its scent and then you make modules based on these scores and interactions with pollinators?
+ggplot(megatable, aes(x=uniqueness.score, y=number_pollspecies_visited)) + geom_point()+geom_smooth() + geom_text(aes(label=plant))
+#u-shape, unqiue scented plants get less pollinator species and common scented plants don't get many different types of polliantors visiting but the average between the two get more visits (kinda)
 ```
 
-
-##pollinator trait summary
+#TODO pollinator trait summary
 ```{r}
 
 
 ```
+##################################################
 
 # Drought-net test run
 
@@ -962,8 +1132,15 @@ Part 1 - species level
 ```
 
 # VOC-pollinator network with fake treatments
-
+#Fake wet scent network
 ```{r}
+#run this for both wet and dry net
+#need to make sure same number of plant species in both treatments 
+plants.inboth.treatments <- net.long %>% count(site, plant) %>% count(plant) %>% filter(n>1) %>% pull(plant) #pull makes it not a dataframe
+
+bothplants.bothtreatments <- intersect(plants.inboth.treatments, bothplants) #plants that are in both treatments and sampled for scent
+
+
 #first make treatments, assign vocs to treatments and poll to treatments - go to comm_vols rmd
 #create fake networks by treatment
 
@@ -972,10 +1149,10 @@ fake.wet.scent.net <-  read_csv("data/VOC_fake_treatments.csv") %>% filter(treat
             column_to_rownames("species") %>% #species are now rownames
             as.matrix() 
 
-fake.wet.scent.net.cut <- fake.wet.scent.net[rownames(fake.wet.scent.net)%in% paulsplants, ] 
+fake.wet.scent.net.cut <- fake.wet.scent.net[rownames(fake.wet.scent.net)%in% bothplants.bothtreatments, ] 
 
 fake.wet.plantcompoundemission <- fake.wet.scent.net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% #average peak area
-  pivot_longer(-plant, names_to = "compound", values_to = "emissions") %>% filter(emissions!=0)
+  pivot_longer(-plant, names_to = "compound", values_to = "emissions") #%>% filter(emissions!=0)
 
 # make treatments for plant pollinator visits
 
@@ -986,17 +1163,153 @@ fake.wet.net <- net.long %>% filter(site=="shady_point") %>%  #assigns wet treat
 
 fake.wet.net <- as.matrix(t(fake.wet.net)) # turns it from dataframe to matrix bc packages like matrix; t transposes (turns dataset sideways - rows -> columns; columns -> rows) 
 
+fake.wet.net.cut <- fake.wet.net[bothplants.bothtreatments,] 
 
-fake.wet.net.cut <- fake.wet.net[bothplants,] #TODO: one of the sites has less plants than the other
+fake.wet.plantpollinatorvisits <- fake.wet.net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% pivot_longer(-plant, names_to = "pollinator", values_to = "visits")
 
-plantpollinatorvisits <- net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% pivot_longer(-plant, names_to = "pollinator", values_to = "visits")
+#has scent data but no p-p data
+setdiff(fake.wet.plantcompoundemission$plant, fake.wet.plantpollinatorvisits$plant)
+
+#has p-p data but no scent data
+setdiff(fake.wet.plantpollinatorvisits$plant, fake.wet.plantcompoundemission$plant)
 
 
 
-##
+#makes network with number of pollinator visits to each VOC
+fake.wet.scentpollnet <- left_join(fake.wet.plantcompoundemission, fake.wet.plantpollinatorvisits,relationship = "many-to-many") %>%  group_by(pollinator, compound) %>% summarise(visits=sum(if_else(emissions==0, 0, visits))) %>%  pivot_wider(names_from = "compound", values_from = "visits") 
 
-scentpollnet <- left_join(plantcompoundemission, plantpollinatorvisits,relationship = "many-to-many") %>%  group_by(pollinator, compound) %>% summarise(visits=sum(visits)) %>%  pivot_wider(names_from = "compound", values_from = "visits") %>% column_to_rownames("pollinator") %>% as.matrix()
+#Puts it in the order of "polls" and fills any empy rows (pollinators that didn't visit the wet plants) with 0. to match wet and dry scent-nets
+fake.wet.scentpollnet <- left_join(tibble(pollinator=polls), fake.wet.scentpollnet) %>%   #makes dataframe of all pollinators
+                        mutate(across(everything(), ~replace_na(.x,0))) %>% 
+                        column_to_rownames("pollinator") %>% as.matrix()
 
 
 ```
+
+#Dry scent network
+```{r}
+#first make treatments, assign vocs to treatments and poll to treatments - go to comm_vols rmd
+#create fake networks by treatment
+
+fake.dry.scent.net <-  read_csv("data/VOC_fake_treatments.csv") %>% filter(treatment=="dry_fake") %>% #only keep dry_fake treatment
+            select(-treatment) %>%  #drops treatment column
+            column_to_rownames("species") %>% #species are now rownames
+            as.matrix() 
+
+fake.dry.scent.net.cut <- fake.dry.scent.net[rownames(fake.dry.scent.net)%in% bothplants.bothtreatments, ] 
+
+fake.dry.plantcompoundemission <- fake.dry.scent.net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% #average peak area
+  pivot_longer(-plant, names_to = "compound", values_to = "emissions")# %>% filter(emissions!=0)
+
+# make treatments for plant pollinator visits
+
+fake.dry.net <- net.long %>% filter(site=="twin_meadows") %>%  #assigns dry treatment as twin meadows 
+              select(plant, pollinator, interactions) %>% 
+              pivot_wider(names_from = plant, values_from = interactions, values_fn= sum, values_fill= 0) %>%  #pivots data set longer so plants as columns and pollinators as rows, replaces NAs with zeros
+    column_to_rownames("pollinator") #pollinators are in first column, makes them into rownames; #deletes the first pollinators column
+
+fake.dry.net <- as.matrix(t(fake.dry.net)) # turns it from dataframe to matrix bc packages like matrix; t transposes (turns dataset sideways - rows -> columns; columns -> rows) 
+
+fake.dry.net.cut <- fake.dry.net[bothplants.bothtreatments,] 
+
+fake.dry.plantpollinatorvisits <- fake.dry.net.cut %>% as.data.frame() %>% rownames_to_column("plant") %>% pivot_longer(-plant, names_to = "pollinator", values_to = "visits")
+
+#has scent data but no p-p data
+setdiff(fake.dry.plantcompoundemission$plant, fake.dry.plantpollinatorvisits$plant)
+
+#has p-p data but no scent data
+setdiff(fake.dry.plantpollinatorvisits$plant, fake.dry.plantcompoundemission$plant)
+
+#makes network with number of pollinator visits to each VOC
+fake.dry.scentpollnet <- left_join(fake.dry.plantcompoundemission, fake.dry.plantpollinatorvisits,relationship = "many-to-many") %>%  group_by(pollinator, compound) %>% summarise(visits=sum(if_else(emissions==0, 0, visits))) %>%  pivot_wider(names_from = "compound", values_from = "visits") 
+
+#Puts it in the order of "polls" and fills any empy rows (pollinators that didn't visit the wet plants) with 0. to match dry and wet scent-nets
+fake.dry.scentpollnet <- left_join(tibble(pollinator=polls), fake.dry.scentpollnet) %>%   #makes dataframe of all pollinators
+                        mutate(across(everything(), ~replace_na(.x,0))) %>% 
+                        column_to_rownames("pollinator") %>% as.matrix()
+```
+
+#compare fake treatment scent-pollinator network
+```{r}
+
+#need to get net.long and polls in same order
+total.visits <- left_join(tibble(pollinator=polls), net.long %>% group_by(pollinator) %>% summarise(interactions=sum(interactions))) %>%  deframe() #turns it into a vector
+
+
+
+library(pheatmap)
+#p-p fake treatments
+#TODO: dry and wet nets have different numbres of pollinators and plants
+pheatmap((fake.dry.net-fake.wet.net)/total.visits, show_colnames=F, scale="none", )
+
+#scent-net fake treatments
+pheatmap((fake.dry.scentpollnet-fake.wet.scentpollnet)/total.visits, show_colnames=F, scale="none", )
+
+
+```
+
+VOCs
+#measurement of how different the scent is from species to species, then does cause a change in pollinator visitation? 
+```{r}
+#how to compare scents? 
+    #for top 10 plant species do a cap on each 
+    #do total emissions go up or down? = change in scent then link this to vrate (if scent goes up do you get higher vrate?)
+library(emmeans)
+
+vol.data.fake <- read_csv("data/all.VOCs.fake.treatments.csv") %>%  select(1:355) #makes vol
+
+meta.data.fake <- read_csv("data/all.VOCs.fake.treatments.csv") %>%  select(356:382) %>%  #makes meta
+                    mutate(total=rowSums(vol.data.fake)) #adds total emissions to metadata
+  
+#tot= total emissions; vr = vrate
+total.emissions.change <- meta.data.fake %>% group_by (species) %>%  
+                            nest() %>% mutate(model.tot= map(data, ~lm(total~treatment, data=.x))) %>% #makes model
+                            mutate(test.tot=map(model.tot, ~tidy(anova(.x)))) %>%  #runs anova on model
+                            mutate(emm.tot = map(model.tot, ~tidy(emmeans(.x, specs="treatment")))) %>%  #emmeans of model
+  #take the estimate in the emmeans and take the ratio to get change in rainout vs control if number is greater than 1 than the compound increases in rainout. if you take the log2 then instead of 0.5 if its half, you get -1 and if its 2 then you get a 1, 1 = 0
+                            mutate(logratio.tot = map_dbl(emm.tot, ~log2(.x$estimate[1]/.x$estimate[2]))) %>% 
+                            mutate(pvalue.tot= map_dbl(test.tot, ~ .x$p.value[1]), adjust.pv.tot= p.adjust(pvalue.tot, method="fdr"))  #adds pvalue col and adjusts for fdr; not adjusting for fdr bc there are NaNs... will prob work with real data?
+                            
+                      
+vrate.change <-  net.long %>% #net.long = "visitation rate" bc has interaction column; just swap net.long with vrate bc interaction data doesn't have 0s
+                            mutate(treatment= if_else(site=="twin_meadows", "dry_fake", "wet_fake")) %>% 
+                            group_by (plant) %>% 
+                            filter(plant %in% bothplants.bothtreatments) %>% #filters plants that are in both treatments and have scent data
+                            rename(species=plant) %>% #renames plant to species so that it matches naming in total.emissions.change
+                            nest() %>% mutate(model.vr= map(data, ~lm(interactions~treatment, data=.x))) %>% #makes model
+                            mutate(test.vr=map(model.vr, ~tidy(anova(.x)))) %>%  #runs anova on model
+                            mutate(emm.vr = map(model.vr, ~tidy(emmeans(.x, specs="treatment")))) %>%  #emmeans of model
+  #take the estimate in the emmeans and take the ratio to get change in rainout vs control if number is greater than 1 than the compound increases in rainout. if you take the log2 then instead of 0.5 if its half, you get -1 and if its 2 then you get a 1, 1 = 0
+                            mutate(logratio.vr = map_dbl(emm.vr, ~log2(.x$estimate[1]/.x$estimate[2]))) %>% 
+                            mutate(pvalue.vr= map_dbl(test.vr, ~ .x$p.value[1]), adjust.pv.vr= p.adjust(pvalue.vr, method="fdr"))    
+
+#compare total emissions and visitation rate for each plant in each treatment
+
+tot.x.vrate <- total.emissions.change %>% left_join(vrate.change, by="species")
+
+ggplot(tot.x.vrate, aes(logratio.tot, logratio.vr, label=species)) + geom_density2d() + geom_vline(xintercept=0) + geom_hline(yintercept = 0) + geom_point() + geom_text(nudge_y = 0.1) 
+  #0 means no difference in ration
+  # 1 means theres double the total emissions in the drouht compared to control
+  # -1 means theres double the total emissions in the control compared to drought
+  #senecio_serra = recieves almost 4x less visits in drought & increased total emissions by almost 4x
+  #Using log scale bc if you don't you get everything that is less than zero on this plot is crammed in between 0 and 1, all the ones that are bigger than 1 fly off the graph - so this is easier to see
+
+#measure how much difference there is between treatments --> take the average bray curtis distance of samples that have different treatments and then divide by average distance within treatment = F value (if same sample size can compare F value bc df is the same)
+
+
+```
+
+
+```{r}
+megatree <- read.tree("phylogeny/plant_20221117-main/plant_megatree.tre")
+sp.list <- data.frame(species= bothplants) %>% mutate(species=str_to_sentence(str_replace(species,"_"," " )))
+gen.list <- read.csv("phylogeny/plant_20221117-main/plant_genus_list.csv")
+
+result <- phylo.maker(sp.list, megatree, gen.list, nodes.type = 1, scenario = 3)
+result
+plot(result$phylo)
+as.dist(result$phylo)
+```
+
+
 

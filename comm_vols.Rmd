@@ -52,11 +52,14 @@ vol.all[,1] <- NULL
 
 ```{r metadata}
 metadata <- read_sheet("1eWGlx8VxCdd43avSOE0TjBkN2NVVOIgX26rqDgll3WY", sheet="BIGMETADATA2plusAmanda") %>% drop_na(sp) %>% 
+  filter(Filename!="#N/A") %>% #TODO investigate 5 metadata entries with no chromatogram file 
+  filter(year!="2017") %>% #drops 2017 samples bc no biomass
+  filter(!Filename%in%c("Geuale1Jul11_08272018.qgd", "Geuale2Jul16_08272018.qgd", "Geuale3Jul16_08272018.qgd")) %>% #removes 3 samples from 2018 with no biomass (mannually entered)
+  #TODO: find biomass for 3 samples above?
   mutate(equil=pump-bag, pumping=end-pump, year=factor(year), 
          sp = na_if(sp,"Air"), species=na_if(species,"Ambient")) %>% mutate(sp=as.factor(sp), species= tolower(species) %>%  str_replace(" ", "_")) %>% 
   left_join(vol.data %>% count(Filename, name="peaks")) %>% 
   left_join(enframe(rowSums(vol.all), name="Filename", value="unfiltered_area")) %>% 
-  filter(Filename!="#N/A") %>% #TODO investigate 5 metadata entries with no chromatogram file 
   as.data.frame() %>% 
   load_metadata(date="date", sample="Filename", group = "sp", type="type", amount = "biomass")
 spnames <- distinct(metadata, sp, species) %>% drop_na(species) %>% deframe()
@@ -101,39 +104,47 @@ sampletable <- make_sampletable(longdata, metadata)
 chemtable <- make_chemtable(longdata, metadata) %>% 
   filter_RT(2, 20) %>% 
   filter_match(0.8) %>% 
-  filter_count(2, group=TRUE) %>% 
+  filter_count(2, group=TRUE) %>% #compound found in 2 or more samples in any species
   filter_freq(0.2, group = TRUE) %>% 
   filter_contaminant(cont.list = "Caprolactam") %>% 
   filter_area(min_maximum = 4e5) %>%
-  filter_ambient_ratio(sampletable, metadata, ratio = 3) %>% 
-  filter_ambient_ttest(sampletable, metadata, 
-                       alpha = 0.05, adjust = "fdr") 
+  #filter_ambient_ratio(sampletable, metadata, ratio = 3) %>% no grouping
+  filter_ambient_ratio(sampletable, metadata, ratio = 10, group=TRUE)  #groups by species
+#  filter_ambient_ttest(sampletable, metadata, alpha = 0.05, adjust = "fdr") #don't use ttest bc there aren't enough scent samples
 chemtable<- chemtable %>% rename(filtercount.floral="filter_count.floral") %>% rowwise() %>% mutate(filtercount.anyspecies="OK"%in% c_across(starts_with("filter_count"))) #tests if there are any OKs in all of the filter counts (if compound present in >20% in any species)
 
 attr(chemtable, "min_ratio") <- 3
 
-#TODO: filter ambient ratio needs to change if you want to get rare VOCs 
-#add function that allows you to group ambient ratio by species so that VOCs are diluted
 chemtable$filter_final <- with(chemtable, filter_RT == "OK" & filter_match =="OK" & 
                                  filtercount.anyspecies == TRUE & filter_area == "OK" & 
                                  filter_ambient_ratio == "OK"  &  filter_contaminant == "OK") 
 
-#plot_filters(chemtable, option="rarity")
-#plot_filters(chemtable, option="ambient")
-#plot_filters(chemtable, option="volcano")
-#plot_filters(chemtable, option="prop")
+plot_filters(chemtable, option="rarity")
+plot_filters(chemtable, option="ambient")
+#plot_filters(chemtable, option="volcano") #shows ttest results but don't use ttest here
+plot_filters(chemtable, option="prop")
 
 count(chemtable, filtercount.anyspecies)
 
 vol <- prune_sampletable(sampletable, chemtable, metadata)
-files_exclude <- c("") #TODO any to exclude?
+files_exclude <- c("") #can exclude samples here if needed
 vol <- vol[!(rownames(vol) %in% files_exclude) ,]
 meta <- metadata[metadata$type == "floral" & !(metadata$sample %in% files_exclude),] %>% droplevels() %>% 
   mutate(equil = replace_na(equil, as.difftime("00:40:00")), #fill in missing times with defaults
          pumping = replace_na(pumping, as.difftime("00:20:00")))
-#TODO need biomass for all samples to standardize
-vol <- vol / as.numeric(meta$equil + meta$pumping, units="hours")# / meta$amount
+
+vol <- vol / as.numeric(meta$equil + meta$pumping, units="hours") / meta$amount #amount = biomass; gives peak area per hour per gram of biomass
+
+
 ```
+
+#write csv for vol and meta to use for scent uniquness test in scent-net code
+```{r}
+
+write_csv(bind_cols(vol, meta), "data/volxmeta.csv")
+
+```
+
 
 #summarise by species
 ```{r}
@@ -143,6 +154,15 @@ scent.net <- bind_cols(vol, meta) %>% group_by(species) %>% summarise(across(all
 write_csv(scent.net, "data/Volatiles_by_species_mean.csv")
 
 
+```
+
+# VOC + metadata table
+```{r}
+scent.fake.treatments <- bind_cols(vol, meta) %>% 
+                  group_by(species) %>%  filter(n()>1) %>% #drops plants with only 1 sample
+                  mutate(treatment=rep_len(c("wet_fake","dry_fake"),length.out= n())) %>%  #alternately assigns treatments to all rows in meta so that each treatment has at least one of each species sampled
+                write_csv("data/all.VOCs.fake.treatments.csv")
+  
 ```
 
 
@@ -174,6 +194,8 @@ ph  <- pheatmap(as.matrix(t(vol))^(1/4),
          annotation_col = data.frame(meta %>% select(sp, year, VWC, amount, flrs), row.names=rownames(vol)), 
    fontsize = 10, border_color = NA, legend=F, annotation_legend=T, cutree_rows=6
 )
+
+#TODO: VWC = 60??
 ```
 
 # Year comparison
