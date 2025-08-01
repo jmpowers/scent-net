@@ -1,0 +1,420 @@
+---
+title: "drought-net-2025"
+author: "Janelle Bohey"
+date: "2025-06-05"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Packages
+
+```{r}
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(brranching)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+library(broom)
+library(dplyr)
+
+
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(brranching)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+library(tibble)
+library(lme4)
+library(lmerTest)
+library(broom)
+library(tidyverse)
+library(tidyr)
+library(vegan)
+library(dplyr)
+library(broom.mixed)
+library(car)
+library(emmeans)
+library(knitr)
+```
+
+
+
+# Metadata 
+```{r}
+
+#treatments 
+#loads in plot and transect codes paired with treatments (rainout, control)
+rainout.treatments <- read_sheet("1YiOm8el0IGCvUHm8xDRxf8U9IWiwI8uNT6KGCzZP2sY")
+
+```
+
+# Tagged Plants
+```{r}
+
+
+#code to figure out how to randomly sample for scent - choose 1 tagged plant per plot 
+tagged_plants_2025 <- read_sheet("1xWH7fVRm352wHamgUgpa1hkvj_DPWLRnzoZ9cCY6gpk")
+
+tagged_plants_2024 <- read_sheet("1CQpUDOA6vYTmdWZ6qwkOehrOVDI3ZZbw2jYZquq4IwU", sheet = "Sheet1")
+
+all_tagged_plants <- tagged_plants_2024 %>% left_join(tagged_plants_2025) 
+
+#RANDOM PLANT Selection for scent sampling -
+# Randomly select 1 plant per species per plot
+random_tags <- tagged_plants %>%
+  filter(plant=="delphinium", date != "2025-06-03") %>% 
+  group_by(transect_plot, plant) %>%
+  slice_sample(n = 1) %>%
+  ungroup() %>%
+  select(tag, transect_plot, plant)
+
+write.csv(random_tags, "random_tagged_plants.csv", row.names = FALSE)
+
+```
+
+# Soil Moisture 
+
+```{r}
+
+soil_moisture <- read_sheet("1WE6tQZkowFBW0A5h5wrFIRIXZ3p4bs5qPBXu1PPG5XU") %>% 
+                  drop_na(vwc) %>% 
+                  pivot_longer(vwc, names_to="position", values_to="VWC") %>%      
+                  group_by(plot, transect, transectplot, date) %>% 
+ 
+                  summarize(VWC = mean(VWC, na.rm=TRUE)) %>% 
+                  left_join(rainout.treatments)
+                    
+vwc.lmer.2025 <- lmer(VWC~treatment + (1|date), data = soil_moisture)
+
+
+anova(vwc.lmer.2025) #p=
+summary(vwc.lmer.2025)
+ggplot(soil_moisture, aes(x=factor(date), y=VWC, color=treatment))+geom_boxplot()+ 
+
+   
+    labs(y="VWC (%)", x="Date", color="Treatment") +
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+ theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(panel.grid.major.x = element_blank(), legend.position = "right") +
+  #scale_y_continuous(limits=c(0, NA))
+  theme(strip.text.x = element_text(size = 11))
+                                     
+
+```
+
+
+
+# Visitation Rate 
+
+```{r}
+visitation.rate <- read_sheet("1Fogbr6sgAxgfnCr5DWvaeCdJNHonhp_mn--mfSsvhCo") %>% 
+       mutate(week_num=factor(week_num))  
+        
+              
+```
+
+
+# Flower Number 
+
+```{r}
+#flower counts
+#loads in flower counts for each transect for each day of pollinator observations
+visrate.flowercounts<- read_sheet("1ObUirLHnFpHzpepx_tiXLPFxXfSVSJ6s9IAa4_Kd25o", na="") %>% mutate(flower_number = as.numeric(as.character(flower_number))) %>% drop_na(flower_number)
+
+#CAP preparation: 
+#turns flowercount into wide format
+flowercount.wide <- visrate.flowercounts %>% pivot_wider(names_from = plant, values_from = flower_number, values_fill=0) %>% left_join(rainout.treatments)
+
+focalspecies <- c("clay", "delphinium","hydro", "or grape", "pansy","dandilion","scenecio","scenecio (small)", "scenecio (big)", "mertensia", "bochera" )
+flowercount.numbers <- flowercount.wide [,focalspecies]
+
+#CAP of flower number for each treatment
+cap.flowernumber <- capscale(flowercount.numbers~treatment+week_num, data = flowercount.wide)
+
+#anova on the CAP 
+anova.cap.flowernumber <- anova(cap.flowernumber, by="term")
+print(anova.cap.flowernumber)
+#week number significant p=0.001; treatment not significant
+
+
+```
+
+
+# Nectar - Delphinium 
+```{r}
+
+nectar.bud <- read_sheet("1agBw8n2KTjn9A6fB7-xlnjAmuUPiIZbBdVruBfp7EzU")
+
+nectar.old.flw <- read_sheet("1tcEVfHzXJY1YS1TI1_vL7zz6vYmDgV8MdyJeODz5mLM")
+
+
+
+```
+
+#Morphology
+
+
+# Morph metadata
+```{r}
+
+#TODO: Inflo height in cm is returning TRUE or 1 - need to fix
+
+morph_2025 <- read_sheet("1grngEjxQ6-uulNl_5yYdbmuajY2DXIGkWfHPBVV-3sM", na=c("")) %>%  
+            #remove rows with no tag number
+                filter( tag != "") %>% 
+                left_join(rainout.treatments)  %>% 
+                mutate(average_flower_size = (length+width)/2)
+
+          
+#Number of morph measurements per tagged plant 
+morph.counts.2025 <-  morph_2025 %>% 
+          #filter(plant == "delphinium") %>% 
+      group_by(plant, tag, transectplot) %>%
+    summarise(
+    total_entries = n(),
+    depth_measured = sum(!is.na(depth)),
+    width_measured = sum(!is.na(width)),
+    length_measured = sum(!is.na(length)), 
+    .groups = "drop"
+  )
+View(morph.counts.2025)
+#write.csv(morph.counts.2025, "morph.counts.2025.csv", row.names = FALSE)
+
+
+
+#...........................................................................
+
+#Making new vector with means of each trait for each transect
+flower.size.means.2025 <- morph_2025 %>%
+    group_by(transectplot, transect, plant, treatment) %>% #takes mean for each plant 
+    summarise(across(c(depth, length, width),
+              ~mean(.x, na.rm=TRUE))) %>% 
+ #For missing values, changes NaNs to NAs
+   mutate(across(
+    c(depth, length, width, average_flower_size),
+    ~ifelse(is.nan(.x), NA, .x)
+  )) #%>% 
+ # drop_na()
+
+print(flower.size.means.2025)
+View(flower.size.means.2025)
+
+all.morph.traits.2025 <- c("length", "width", "depth", "average_flower_size")
+
+morph.models.everything.2025 <- flower.size.means.2025 %>% filter(plant!="galium") %>%  pivot_longer(all_of(all.morph.traits.2025), names_to = "trait") %>% group_by(trait,plant) %>% nest() %>% 
+      mutate(morph.trait.lmer=map(data, ~lmer(value~treatment + (1|transect) + (1 | transect:plot), data=.x)), 
+      morph.Anova= map(morph.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
+      unnest(morph.Anova)%>%
+      dplyr::select(-data) %>% #-morph.trait.lmer
+      mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      filter(term!="(Intercept)") %>% 
+       mutate(emmeans=map(morph.trait.lmer, ~tidy(emmeans(.x, specs=c("treatment") )) %>% select(-p.value)))
+
+View(morph.models.everything.2025)
+#kable(morph.models.everything.2025, digits=3) #spits out model into table
+
+
+#emmeans table 
+
+morph.emmeans.2025<- morph.models.everything.2025 %>% dplyr::select(-morph.trait.lmer, -term, -statistic, -df ) %>% 
+      #mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      unnest(emmeans)  
+    
+kable(morph.emmeans.2025, digits=3) #spits out model into table
+
+#plot morph traits
+
+plot.morph.traits.2025 <- flower.size.means.2025 %>% 
+    pivot_longer(all_of(all.morph.traits.2025), names_to = "trait") %>% 
+    ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
+    facet_wrap(vars(trait),scales = "free_y", labeller=as_labeller(c(depth="Nectar Depth", length= "Flower Length", width="Flower Width")))+
+    labs(y="", x="", color="Treatment") +
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+ theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom") +
+  #scale_y_continuous(limits=c(0, NA))
+  theme(strip.text.x = element_text(size = 11))
+                                     
+print(plot.morph.traits.2025)
+
+```
+
+```{r}
+inflo_height_2025 <- morph_2025 %>% 
+      #Adds 4mm to all mm inflo measurements   
+           mutate(inflo_height_mm = ifelse(!is.na(inflo_height_add4mm_in_mm), inflo_height_add4mm_in_mm + 4, NA)) %>% 
+        #convert mm to cm
+        mutate(inflo_height_mm_to_cm = inflo_height_mm /10) %>% 
+    #clugie way of getting cm data into R
+      #For some reason the inflo_height_cm column is only showing up as TRUE or blank value in R. In the google sheet I made a separate column which has both cm and mm inflo height data. The follow code is saying, if the value is TRUE in the inflo_height_cm column then take the value from the inflo_height_ALL_mm_cm column and put it in a new column called height_cm.
+        mutate(
+    inflo_height_cm_logical = inflo_height_cm == "TRUE",  # creates a logical column
+    height_cm = case_when(
+      inflo_height_cm_logical ~ as.numeric(inflo_height_ALL_mm_cm),
+      TRUE ~ NA_real_
+    )
+  ) %>% 
+  
+  
+    #combine columns with inflo height converted to cm
+          mutate(inflo_height_cm_all_final = coalesce(height_cm, inflo_height_mm_to_cm)) %>% 
+  drop_na()
+
+
+#Overall model 
+
+inflo.lmer.2025 <- lmer(inflo_height_cm_all_final ~ treatment + (1 | transect), data = inflo_height_2025)
+summary(inflo.lmer.2025)
+Anova(inflo.lmer.2025, type=3)            
+  
+#model for each species
+
+inflo_models_by_species <- inflo_height_2025 %>%
+  group_by(plant) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lmer(inflo_height_cm_all_final ~ treatment + (1 | transect) + (1 | transect:plot), data = .x))) %>% 
+  mutate(summary = map(model, ~ tidy(.x, effects = "fixed"))) %>%
+  unnest(summary) %>%
+  mutate(
+    signif = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01 ~ "**",
+      p.value < 0.05 ~ "*",
+      TRUE ~ ""
+    )
+  ) %>%
+  select(plant, term, estimate, std.error, statistic, p.value, signif)
+
+View(inflo_models_by_species)
+```
+
+# delphinium morphology metadata & find plant averags for morph traits
+```{r}
+
+delph.flower.size <- read_sheet("1grngEjxQ6-uulNl_5yYdbmuajY2DXIGkWfHPBVV-3sM",  na=c("na","","NA")) %>% 
+      left_join(rainout.treatments) %>% 
+    filter(plant%in%c("delphinium","flagellaris","congesta")) %>% 
+    filter( tag != "") %>% 
+      mutate(width = as.character(width)) %>% 
+  mutate(width = na_if(width, "NULL"))  %>% 
+         mutate(width = as.numeric(width), length = as.numeric(length), inflo_height_add4mm_in_mm = as.numeric(inflo_height_add4mm_in_mm)) %>% 
+          mutate(average_flower_size = (length+width)/2)
+
+  
+#table of # of plant species in each treatment
+with(delph.flower.size, table(plant, treatment))
+
+#Making new vector with means of each trait for each transect
+delph.flower.size.means <- delph.flower.size %>%
+    group_by(transect, plant) %>% #takes mean for each plant 
+    summarise(across(c(depth, length, width, inflo_height_add4mm_in_mm),
+              ~mean(.x, na.rm=TRUE))) %>% 
+  mutate(across(
+    c(depth, length, width, inflo_height_add4mm_in_mm),
+    ~ifelse(is.nan(.x), NA, .x)
+  )) #%>% 
+  #drop_na()
+
+print(delph.flower.size.means)
+View(delph.flower.size.means)
+
+all.morph.traits.2025 <- c("length", "width", "depth", "inflo_height_add4mm_in_mm", "average_flower_size")
+
+delph.morph.models.everything.2025 <- delph.flower.size %>% pivot_longer(all_of(all.morph.traits.2025), names_to = "trait") %>% group_by(trait,plant) %>% nest() %>% 
+      mutate(morph.trait.lmer=map(data, ~lmer(value~treatment + (1|transect) + (1 | transect:plot), data=.x)), 
+      morph.Anova= map(morph.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
+      unnest(morph.Anova)%>%
+      dplyr::select(-data) %>% #-morph.trait.lmer
+      mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      filter(term!="(Intercept)") %>% 
+       mutate(emmeans=map(morph.trait.lmer, ~tidy(emmeans(.x, specs=c("treatment") )) %>% select(-p.value)))
+
+View(delph.morph.models.everything.2025)
+#kable(morph.models.everything.2025, digits=3) #spits out model into table
+
+
+#emmeans table 
+
+delph.morph.emmeans<- delph.morph.models.everything.2025 %>% dplyr::select(-morph.trait.lmer, -term, -statistic, -df ) %>% 
+      #mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      unnest(emmeans)  
+    
+kable(delph.morph.emmeans, digits=3) #spits out model into table
+
+#plot morph traits
+
+figure.traits <- c("depth", "inflo_height_add4mm_in_mm", "average_flower_size")
+
+plot.delph.traits <- delph.flower.size %>% 
+    pivot_longer(all_of(figure.traits), names_to = "trait") %>% 
+    ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
+    facet_wrap(vars(trait),scales = "free_y", labeller=as_labeller(c(depth="Nectar Depth", length= "Flower Length", width="Flower Width", inflo_height_add4mm_in_mm="Inflorescence Height", average_flower_size ="Average Flower Size")))+
+    labs(y="", x="", color="Treatment") +
+  expand_limits(y = 0)+
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+ theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom") +
+  #scale_y_continuous(limits=c(0, NA))
+  theme(strip.text.x = element_text(size = 11))
+                                     
+print(plot.delph.traits)
+```
+
+
+#Seeds
+```{r}
+
+seed_counts <- read_sheet("1z5DuogRE8C-wbcRLjBXV9OTpDxfRxh1GF4WDKeh8w4o", na="") %>% 
+                   left_join(rainout.treatments)
+
+all.seed.traits.2025 <- c("weight", "fruit_number", "aborted_fruits", "seed_number")
+
+seed.models.2025 <- seed_counts %>% pivot_longer(all_of(all.seed.traits.2025), names_to = "trait") %>% group_by(trait,species) %>% nest() %>% 
+      mutate(seed.trait.lmer=map(data, ~lmer(value~treatment + (1|transect)+(1 | transect:plot), data=.x)), 
+      seed.Anova= map(seed.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
+      unnest(seed.Anova)%>%
+      dplyr::select(-data) %>% #-morph.trait.lmer
+      mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      filter(term!="(Intercept)") %>% 
+       mutate(emmeans=map(seed.trait.lmer, ~tidy(emmeans(.x, specs=c("treatment") )) %>% select(-p.value)))
+
+View(seed.models.2025)
+
+###
+#emmeans table 
+
+seed.emmeans<- seed.models.2025 %>% dplyr::select(-seed.trait.lmer, -term, -statistic, -df ) %>% 
+      #mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      unnest(emmeans)  
+    
+kable(seed.emmeans, digits=3) #spits out model into table
+
+#plot morph traits
+
+plot.seed.traits <- seed_counts %>% 
+    pivot_longer(all_of(all.seed.traits.2025), names_to = "trait") %>% 
+    ggplot(aes(color=treatment, x=str_to_title(species), y=value))+geom_boxplot()+
+    facet_wrap(vars(trait),scales = "free_y", labeller=as_labeller(c(weight="Weight (g)", fruit_number= "Number of Fruits", seed_number="Seed Set", aborted_fruits="Aborted Fruits")))+
+    labs(y="", x="", color="Treatment") +
+  expand_limits(y = 0)+
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+ theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom") +
+  #scale_y_continuous(limits=c(0, NA))
+  theme(strip.text.x = element_text(size = 11))
+                                     
+print(plot.seed.traits)
+
+```
+

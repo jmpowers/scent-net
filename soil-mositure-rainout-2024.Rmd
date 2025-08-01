@@ -33,7 +33,7 @@ vwc <- read_sheet("1pMNaVLHJ2d5SBAP25xk5DjTMnbX1yAmYyWLtiJ_bQlw", na=c("","rocky
 
 ```{r}
 vwc.lmer <- lmer(VWC~treatment + (1|date), data = mutate(vwc, date=factor(date),transect_plot=factor(transect_plot)))
-anova(vwc.lmer) #p=o.o6
+anova(vwc.lmer) #p=
 summary(vwc.lmer)
 ggplot(vwc, aes(x=factor(date), y=VWC, color=treatment))+geom_boxplot()
 ```
