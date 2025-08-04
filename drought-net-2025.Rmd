@@ -426,6 +426,7 @@ seed.emmeans<- seed.models.2025 %>% dplyr::select(-seed.trait.lmer, -term, -stat
     
 kable(seed.emmeans, digits=3) #spits out model into table
 
+
 #plot morph traits
 
 plot.seed.traits <- seed_counts %>% 
@@ -433,12 +434,13 @@ plot.seed.traits <- seed_counts %>%
     ggplot(aes(color=treatment, x=str_to_title(species), y=value))+geom_boxplot()+
     facet_wrap(vars(trait),scales = "free_y", labeller=as_labeller(c(weight="Weight (g)", fruit_number= "Number of Fruits", seed_number="Seed Set", aborted_fruits="Aborted Fruits")))+
     labs(y="", x="", color="Treatment") +
+  scale_y_continuous(limits = c(0.06, NA))+
   expand_limits(y = 0)+
   scale_color_manual(values = c("skyblue","orange"))+
   theme_minimal()+ theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   theme(panel.grid.major.x = element_blank(), legend.position = "bottom") +
   #scale_y_continuous(limits=c(0, NA))
-  theme(strip.text.x = element_text(size = 11))
+  theme(strip.text.x = element_text(size = 11)) 
                                      
 print(plot.seed.traits)
 
