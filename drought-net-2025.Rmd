@@ -316,6 +316,7 @@ delph.flower.size <- read_sheet("1grngEjxQ6-uulNl_5yYdbmuajY2DXIGkWfHPBVV-3sM", 
             (length + width) / 2,
              length ) )
 
+#TODO: Add average per tag!!
   
 #table of # of plant species in each treatment
 with(delph.flower.size, table(plant, treatment))
