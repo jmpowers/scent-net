@@ -28,7 +28,6 @@ library(bipartite)
 library(vegan)
 library(phytools)
 library(taxize)
-library(brranching)
 library(rotl)
 library(dendextend)
 library(tidyverse)
@@ -47,7 +46,6 @@ library(car)
 library(emmeans)
 library(knitr)
 ```
-
 
 
 # Metadata 
@@ -100,7 +98,7 @@ vwc.lmer.2025 <- lmer(VWC~treatment + (1|date), data = soil_moisture)
 
 anova(vwc.lmer.2025) #p=
 summary(vwc.lmer.2025)
-ggplot(soil_moisture, aes(x=factor(date), y=VWC, color=treatment))+geom_boxplot()+ 
+plot_soil_moisture <- ggplot(soil_moisture, aes(x=factor(date), y=VWC, color=treatment))+geom_boxplot()+ 
 
    
     labs(y="VWC (%)", x="Date", color="Treatment") +
@@ -109,7 +107,10 @@ ggplot(soil_moisture, aes(x=factor(date), y=VWC, color=treatment))+geom_boxplot(
   theme(panel.grid.major.x = element_blank(), legend.position = "right") +
   #scale_y_continuous(limits=c(0, NA))
   theme(strip.text.x = element_text(size = 11))
-                                     
+  
+print(plot_soil_moisture)
+
+#ggsave(plot.total.emissions.field, file='plots-nitrogen/total_emissions_field_boxplot.jpg', width=150, height=140, units= 'mm', dpi=600)
 
 ```
 
@@ -299,6 +300,7 @@ inflo_models_by_species <- inflo_height_2025 %>%
 View(inflo_models_by_species)
 ```
 
+
 # delphinium morphology metadata & find plant averags for morph traits
 ```{r}
 
@@ -309,7 +311,10 @@ delph.flower.size <- read_sheet("1grngEjxQ6-uulNl_5yYdbmuajY2DXIGkWfHPBVV-3sM", 
       mutate(width = as.character(width)) %>% 
   mutate(width = na_if(width, "NULL"))  %>% 
          mutate(width = as.numeric(width), length = as.numeric(length), inflo_height_add4mm_in_mm = as.numeric(inflo_height_add4mm_in_mm)) %>% 
-          mutate(average_flower_size = (length+width)/2)
+          mutate(average_flower_size = if_else(
+          plant %in% c("delph", "congresta"),
+            (length + width) / 2,
+             length ) )
 
   
 #table of # of plant species in each treatment
@@ -331,6 +336,7 @@ View(delph.flower.size.means)
 
 all.morph.traits.2025 <- c("length", "width", "depth", "inflo_height_add4mm_in_mm", "average_flower_size")
 
+#TODO: do we need tag means to run in model?
 delph.morph.models.everything.2025 <- delph.flower.size %>% pivot_longer(all_of(all.morph.traits.2025), names_to = "trait") %>% group_by(trait,plant) %>% nest() %>% 
       mutate(morph.trait.lmer=map(data, ~lmer(value~treatment + (1|transect) + (1 | transect:plot), data=.x)), 
       morph.Anova= map(morph.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
@@ -356,8 +362,24 @@ kable(delph.morph.emmeans, digits=3) #spits out model into table
 
 figure.traits <- c("depth", "inflo_height_add4mm_in_mm", "average_flower_size")
 
+
 plot.delph.traits <- delph.flower.size %>% 
     pivot_longer(all_of(figure.traits), names_to = "trait") %>% 
+      mutate(
+    plant = fct_recode(plant,
+       "D. nuttallianum"= "delphinium" ,
+       "E. flagellaris"= "flagellaris",
+       "E. congesta" = "congesta"
+      # Add more recoding here if needed
+    ),
+    plant = fct_relevel(plant, 
+      "D. nuttallianum", 
+      "E. flagellaris",
+      "E. congesta"
+      # Put them in the desired order here
+    )
+  ) %>% 
+  
     ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
     facet_wrap(vars(trait),scales = "free_y", labeller=as_labeller(c(depth="Nectar Depth", length= "Flower Length", width="Flower Width", inflo_height_add4mm_in_mm="Inflorescence Height", average_flower_size ="Average Flower Size")))+
     labs(y="", x="", color="Treatment") +
@@ -372,11 +394,15 @@ print(plot.delph.traits)
 ```
 
 
-#Seeds
+#Seeds - delphinium only
 ```{r}
 
-seed_counts <- read_sheet("1z5DuogRE8C-wbcRLjBXV9OTpDxfRxh1GF4WDKeh8w4o", na="") %>% 
-                   left_join(rainout.treatments)
+seed_counts <- read_sheet("1z5DuogRE8C-wbcRLjBXV9OTpDxfRxh1GF4WDKeh8w4o", sheet = "delph",  na=c("")) %>% 
+                   left_join(rainout.treatments) %>% 
+                    select(species, tag, transect, plot, transectplot, weight, fruit_number, aborted_fruits,	seed_number, treatment) %>% 
+                  mutate(tag = as.character(tag)) %>%   
+                mutate(tag = na_if(tag, "NULL")) %>% 
+                filter(!is.na(tag))
 
 all.seed.traits.2025 <- c("weight", "fruit_number", "aborted_fruits", "seed_number")
 
@@ -416,5 +442,143 @@ plot.seed.traits <- seed_counts %>%
                                      
 print(plot.seed.traits)
 
+```
+
+#Flag seed analyses
+```{r}
+
+seed_counts_flag <- read_sheet("1z5DuogRE8C-wbcRLjBXV9OTpDxfRxh1GF4WDKeh8w4o", sheet = "flag",  na="") %>% 
+                   left_join(rainout.treatments) %>%  
+                    filter(!is.na(flower_number) & !is.na(seed_number)) %>% 
+                    select(species, tag,transect, plot, transectplot, flower_number, seed_number, treatment)
+
+flag.seed.traits.2025 <- c("flower_number", "seed_number")
+
+flag.seed.models.2025 <- seed_counts_flag %>% pivot_longer(all_of(flag.seed.traits.2025), names_to = "trait") %>% group_by(trait,species) %>% nest() %>% 
+      mutate(flag.seed.trait.lmer=map(data, ~lmer(value~treatment + (1|transect)+(1 | transect:plot), data=.x)), 
+      flag.seed.Anova= map(flag.seed.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
+      unnest(flag.seed.Anova)%>%
+      dplyr::select(-data) %>% #-morph.trait.lmer
+      mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      filter(term!="(Intercept)") %>% 
+       mutate(emmeans=map(flag.seed.trait.lmer, ~tidy(emmeans(.x, specs=c("treatment") )) %>% select(-p.value)))
+
+View(flag.seed.models.2025)
+
+###
+#emmeans table 
+
+flag.seed.emmeans<- flag.seed.models.2025 %>% dplyr::select(-flag.seed.trait.lmer, -term, -statistic, -df ) %>% 
+      #mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      unnest(emmeans)  
+    
+kable(flag.seed.emmeans, digits=3) #spits out model into table
+
+#plot morph traits
+
+plot.flag.seed.traits <- seed_counts_flag %>% 
+    pivot_longer(all_of(flag.seed.traits.2025), names_to = "trait") %>% drop_na() %>% 
+    ggplot(aes(color=treatment, x=str_to_title(species), y=value))+geom_boxplot()+
+    facet_wrap(vars(trait),scales = "free_y", labeller=as_labeller(c(flower_number="Flower Number", seed_number= "Seed Set")))+
+    labs(y="", x="", color="Treatment") +
+  expand_limits(y = 0)+
+  scale_color_manual(values = c("skyblue","orange"))+
+  theme_minimal()+ theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  theme(panel.grid.major.x = element_blank(), legend.position = "bottom") +
+  #scale_y_continuous(limits=c(0, NA))
+  theme(strip.text.x = element_text(size = 11))
+                                     
+print(plot.flag.seed.traits)
+
+```
+
+
+# seed set X flower size 
+#correlation
+
+```{r}
+
+## Step 1: Remove any seed entries without a tag
+#tag needs to be a character not list
+seed_counts_flag$tag <- as.character(seed_counts_flag$tag)
+
+delph.flower.size <- delph.flower.size %>%
+  mutate(tag = as.character(tag))
+
+avg_flower_size_per_tag <- avg_flower_size_per_tag %>%
+  mutate(tag = as.character(tag))
+
+#create new dataframe that averages measurements per tag so only 1 flower size value per tag
+avg_flower_size_per_tag <- delph.flower.size %>%
+  group_by(tag,plant) %>%
+  summarize(average_flower_size = mean(average_flower_size, na.rm = TRUE)) %>% 
+  # Replace NaN with NA first (optional)
+  mutate(average_flower_size = ifelse(is.nan(average_flower_size), NA, average_flower_size)) %>%
+  # Then drop rows with NA average_flower_size
+  filter(!is.na(average_flower_size))
+
+#bind rows from delph seed_counts and seed_counts_flag, join average flower size
+seedxflowersize <-  bind_rows(seed_counts, seed_counts_flag) %>% 
+                    filter(tag %in% avg_flower_size_per_tag$tag) %>%  #only keep tagged plants that are measured
+                    left_join(avg_flower_size_per_tag ,
+                     by = "tag")
+
+#counting how many tags per species
+tag_counts_per_species <- seedxflowersize %>%
+  group_by(species) %>%              # group by species
+  summarize(tag_count = n())          # count rows per species
+
+#gives sample size
+print(tag_counts_per_species)
+
+#check for normal distribution to determine what method to use for correlation test
+hist(seedxflowersize$average_flower_size, main = "Histogram of Flower Size")
+hist(seedxflowersize$seed_number, main = "Histogram of Seed Number")
+#not normally distributed so use spearman method below
+
+#Correlation Test: 
+cor.test(seedxflowersize$average_flower_size, seedxflowersize$seed_number, method = "spearman")
+
+#plot - species combined
+
+ggplot(seedxflowersize, aes(x = average_flower_size, y = seed_number)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue") +
+  theme_minimal()
+
+
+
+#Model by Plant Species
+#does the effect of flower size on seed number vary by species?
+
+#first need to set species column as.factor
+seedxflowersize$species <- as.factor(seedxflowersize$species)
+
+#model:
+seedxflower.model <- lmer(
+  seed_number ~ average_flower_size * species + (1 | transect:plot) + (1 | transect),
+  data = seedxflowersize
+)
+summary(seedxflower.model)
+
+#model includes:
+#(Intercept): mean seed number for delphinium when average_flower_size = 0.
+#average_flower_size: slope of the relationship between flower size and seed number for delphinium.
+#speciesflagellaris: difference in intercept between flagellaris and delphinium.
+#average_flower_size:speciesflagellaris: difference in slope between species.
+
+#plot
+
+ggplot(seedxflowersize, aes(x = average_flower_size, y = seed_number, color = treatment)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +  # add trend lines per treatment
+  facet_wrap(~ species) +
+  theme_minimal() +
+  labs(
+    x = "Average Flower Size",
+    y = "Seed Number",
+    color = "Treatment"
+  ) +
+  theme(strip.text = element_text(face = "bold"))
 ```
 
