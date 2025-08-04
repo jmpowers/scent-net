@@ -547,7 +547,39 @@ ggplot(seedxflowersize, aes(x = average_flower_size, y = seed_number)) +
   theme_minimal()
 
 
+#Run separate model for each plant species:
+# Model for delphinium
+delph_model <- lmer(
+  seed_number ~ average_flower_size + (1 | transect:plot) + (1 | transect),
+  data = seedxflowersize %>% filter(species == "delphinium")
+)
+summary(delph_model)
 
+# Model for flagellaris
+flag_model <- lmer(
+  seed_number ~ average_flower_size + (1 | transect:plot) + (1 | transect),
+  data = seedxflowersize %>% filter(species == "flagellaris")
+)
+summary(flag_model)
+
+#plot
+
+ggplot(seedxflowersize, aes(x = average_flower_size, y = seed_number, color = treatment)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +  # add trend lines per treatment
+  facet_wrap(~ species) +
+  theme_minimal() +
+  labs(
+    x = "Average Flower Size",
+    y = "Seed Number",
+    color = "Treatment"
+  ) +
+  theme(strip.text = element_text(face = "bold"))
+
+
+
+
+################ other models #################
 #Model by Plant Species
 #does the effect of flower size on seed number vary by species?
 
@@ -566,19 +598,5 @@ summary(seedxflower.model)
 #average_flower_size: slope of the relationship between flower size and seed number for delphinium.
 #speciesflagellaris: difference in intercept between flagellaris and delphinium.
 #average_flower_size:speciesflagellaris: difference in slope between species.
-
-#plot
-
-ggplot(seedxflowersize, aes(x = average_flower_size, y = seed_number, color = treatment)) +
-  geom_point(alpha = 0.7) +
-  geom_smooth(method = "lm", se = FALSE) +  # add trend lines per treatment
-  facet_wrap(~ species) +
-  theme_minimal() +
-  labs(
-    x = "Average Flower Size",
-    y = "Seed Number",
-    color = "Treatment"
-  ) +
-  theme(strip.text = element_text(face = "bold"))
 ```
 
