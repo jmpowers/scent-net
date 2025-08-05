@@ -194,7 +194,7 @@ View(morph.counts.2025)
 
 
 
-#...........................................................................
+#.....................................................................
 
 #Making new vector with means of each trait for each transect
 flower.size.means.2025 <- morph_2025 %>%
@@ -408,8 +408,8 @@ seed_counts <- read_sheet("1z5DuogRE8C-wbcRLjBXV9OTpDxfRxh1GF4WDKeh8w4o", sheet 
 all.seed.traits.2025 <- c("weight", "fruit_number", "aborted_fruits", "seed_number")
 
 seed.models.2025 <- seed_counts %>% pivot_longer(all_of(all.seed.traits.2025), names_to = "trait") %>% group_by(trait,species) %>% nest() %>% 
-      mutate(seed.trait.lmer=map(data, ~lmer(value~treatment + (1|transect)+(1 | transect:plot)+(1|tag), data=.x)), 
-      seed.Anova= map(seed.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
+      mutate(seed.trait.lmer=map(data, ~lmer(value~treatment + (1|transect)+(1 | transect:plot), data=.x)), 
+      seed.Anova= map(seed.trait.lmer, ~tidy(Anova(.x, type=3)))) %>% 
       unnest(seed.Anova)%>%
       dplyr::select(-data) %>% #-morph.trait.lmer
       mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
@@ -458,7 +458,7 @@ seed_counts_flag <- read_sheet("1z5DuogRE8C-wbcRLjBXV9OTpDxfRxh1GF4WDKeh8w4o", s
 flag.seed.traits.2025 <- c("flower_number", "seed_number")
 
 flag.seed.models.2025 <- seed_counts_flag %>% pivot_longer(all_of(flag.seed.traits.2025), names_to = "trait") %>% group_by(trait,species) %>% nest() %>% 
-      mutate(flag.seed.trait.lmer=map(data, ~lmer(value~treatment + (1|transect)+(1 | transect:plot)+ (1|tag), data=.x)), 
+      mutate(flag.seed.trait.lmer=map(data, ~lmer(value~treatment + (1|transect)+(1 | transect:plot), data=.x)), 
       flag.seed.Anova= map(flag.seed.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
       unnest(flag.seed.Anova)%>%
       dplyr::select(-data) %>% #-morph.trait.lmer
@@ -494,7 +494,6 @@ plot.flag.seed.traits <- seed_counts_flag %>%
 print(plot.flag.seed.traits)
 
 ```
-
 
 # seed set X flower size 
 #correlation
@@ -547,6 +546,7 @@ hist(seedxflowersize$seed_number_sqrt, main = "Histogram of Seed Number Sqrt tra
 
 
 #Correlation Test: 
+#(for all species - need to do one test per species)
 cor.test(seedxflowersize$average_flower_size, seedxflowersize$seed_number, method = "spearman")
 
 
