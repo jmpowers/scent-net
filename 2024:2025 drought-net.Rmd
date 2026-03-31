@@ -1,0 +1,2770 @@
+---
+title: "2024/2025 Drought-net"
+author: "Janelle Bohey"
+date: "2026-01-27"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+# Packages
+
+```{r}
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(brranching)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+library(broom)
+library(dplyr)
+library(glmmTMB)
+
+
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+library(tibble)
+library(lme4)
+library(lmerTest)
+library(broom)
+library(tidyverse)
+library(tidyr)
+library(vegan)
+library(dplyr)
+library(broom.mixed)
+library(car)
+library(emmeans)
+library(knitr)
+```
+
+#color pallate 
+```{r}
+
+treatment_colors <- c(
+  "control" = "#9bd2ef",
+  "rainout" = "#ce9a9b"
+)
+
+year_colors <- c(
+  "2024" = "#4D4D4D",
+  "2025" = "#A6A6A6"
+)
+
+species_colors <- c(
+  "#1B9E77",
+  "#D95F02",
+  "#7570B3",
+  "#E6AB02",
+  "#66A61E",
+  "#A6761D"
+)
+
+palette_all <- c(
+  # Treatments
+  "control" = "#0072B2",
+  "rainout" = "#D55E00",
+  # Plant species
+  "species1" = "#009E73",
+  "species2" = "#F0E442",
+  "species3" = "#CC79A7",
+  "species4" = "#56B4E9",
+  "species5" = "#E69F00",
+  "species6" = "#999999",
+  # Insect groups
+  "group1" = "#882255",
+  "group2" = "#44AA99",
+  "group3" = "#DDCC77",
+  "group4" = "#117733"
+)
+
+palette_all <- c(
+  # Treatments
+  "control" = "#0072B2",
+  "rainout" = "#D55E00",
+  # Plant species
+  "species1" = "#009E73",
+  "species2" = "#F0E442",
+  "species3" = "#CC79A7",
+  "species4" = "#56B4E9",
+  "species5" = "#DDAA33",
+  "species6" = "#999999",
+  # Insect groups
+  "group1" = "#661100",
+  "group2" = "#882255",
+  "group3" = "#44AA99",
+  "group4" = "#117733"
+)
+
+palette_new <- c(
+  # Treatments
+  "control" = "#0055A4",   # strong blue
+  "rainout" = "#CC3300",   # red-orange
+  # Plant species
+  "species1" = "#FFCC00",  # bright yellow
+  "species2" = "#00CC99",  # cyan-teal
+  "species3" = "#FF66CC",  # pink
+  "species4" = "#9966FF",  # purple
+  "species5" = "#FF9933",  # orange
+  "species6" = "#666666",  # medium gray
+  # Insect groups
+  "group1" = "#990000",    # dark red
+  "group2" = "#009966",    # dark teal
+  "group3" = "#CC9966",    # brown/tan
+  "group4" = "#3333CC"     # dark blue
+)
+
+palette_gradient <- c(
+  # Treatments
+  "control" = "#0055A4",
+  "rainout" = "#CC3300",
+  # Plant species
+  "flag" = "#330066",
+  "congesta" = "#660099",
+  "umbellatum" = "#9933CC",
+  "potentilla" = "#CC66FF",
+  "heterotheca" = "#DDAAFF",
+  "heliomeris" = "#EEDCFF",
+  # Insect groups
+  "bombus" = "#00441B",
+  "sol_bee" = "#006D2C",
+  "fly" = "#238B45",
+  "lepidoptera" = "#66C2A4"
+)
+
+
+
+
+
+```
+
+```{r}
+# Plants: 6-level purple gradient
+#plants.color <- palette_gradient[grep("species", names(palette_gradient))]
+
+# Insects: 4-level green gradient
+#insects.color <- palette_gradient[grep("group", names(palette_gradient))]
+
+```
+
+#finds gradient of colors
+```{r}
+# library(ggplot2)
+# library(colorspace)
+# 
+# # Function to generate gradient with perceptually uniform steps
+# generate_contrast_gradient <- function(start_hex, end_hex, n) {
+#   # colorRampPalette returns hex directly, using Lab space for perceptual uniformity
+#   gradient <- colorRampPalette(c(start_hex, end_hex), space = "Lab")(n)
+#   return(gradient)
+# }
+# 
+# # Plant species: purple gradient (6 levels, dark → light)
+# insect.color <- generate_contrast_gradient("#330066", "#CC99FF", 4)
+# names(insects) <- paste0("species", 1:4)
+# 
+# # Insect groups: green gradient (4 levels, dark → light)
+# plant.color <- generate_contrast_gradient("#00441B", "#66C2A4", 6)
+# names(plants) <- paste0("group", 1:6)
+# 
+# # Treatments: fixed high-contrast colors
+# treatments <- c("control" = "#0055A4", "rainout" = "#CC3300")
+# 
+# # Combine into full palette
+# palette_contrast <- c(treatments, plant.color, insect.color)
+# 
+# # Visualize the palette
+# colors.df <- data.frame(
+#   category = names(palette_contrast),
+#   color = palette_contrast,
+#   x = 1:length(palette_contrast)
+# )
+# 
+# ggplot(colors.df, aes(x = x, y = 1, fill = color)) +
+#   geom_tile() +
+#   scale_fill_identity() +
+#   geom_text(aes(label = category), vjust = -0.5, size = 4) +
+#   theme_void() +
+#   theme(plot.margin = margin(10, 10, 10, 10))
+```
+
+
+#rainout treatments
+```{r}
+#treatments 
+#loads in plot and transect codes paired with treatments (rainout, control)
+rainout.treatments <- read_sheet("1YiOm8el0IGCvUHm8xDRxf8U9IWiwI8uNT6KGCzZP2sY") %>% 
+                  mutate(transectplot = as.character(transectplot))
+```
+
+#soil moisture
+```{r}
+vwc.2024 <- read_sheet("1pMNaVLHJ2d5SBAP25xk5DjTMnbX1yAmYyWLtiJ_bQlw", na=c("","rocky")) %>% 
+                  dplyr::select(-transect_plot) %>% 
+                  mutate(plot = str_to_lower(plot), #plot to lowercase  
+                  transectplot = paste0(transect, plot)) %>%     # combine transect + plot
+  
+                mutate(top_VWC=as.numeric(top_VWC), bottom_VWC=as.numeric(bottom_VWC)) %>%
+                pivot_longer(c(top_VWC, bottom_VWC), names_to="position", values_to="VWC") %>% 
+                group_by(plot, transect, transectplot, treatment, date) %>% 
+                summarize(VWC = mean(VWC, na.rm=TRUE), .groups = "drop") %>% 
+                filter(!is.nan(VWC)) %>%  #removes rows with no VWC measurements
+                mutate(year = 2024)
+
+vwc.2025 <- read_sheet("1WE6tQZkowFBW0A5h5wrFIRIXZ3p4bs5qPBXu1PPG5XU") %>% 
+                  drop_na(vwc) %>% 
+                  pivot_longer(vwc, names_to="position", values_to="VWC") %>%      
+                  group_by(plot, transect, transectplot, date) %>% 
+ 
+                  summarize(VWC = mean(VWC, na.rm=TRUE)) %>% 
+                  left_join(rainout.treatments) %>% 
+                  mutate(year = 2025)
+
+vwc.all <- bind_rows(vwc.2024, vwc.2025) %>% 
+              mutate(VWC = round(VWC, 2)) %>% 
+              mutate(year = as.factor(year)) %>% 
+              mutate(date = as.Date(date)) %>% 
+              mutate(calendar_week = isoweek(date)) %>% 
+              mutate(calendar_week = as.numeric(round(calendar_week))) %>%
+              mutate(year_week = interaction(year, 
+                                        calendar_week, drop = TRUE))
+  
+  
+  
+  #TO make sure 2024 only includes weeks 27-33:
+              #Filter data to include only weeks actually have data for 2024
+              #removes rows from the dataset where the year is 2024 and the calendar_week is not in the specified range (27-33)
+             # filter(!(year == "2024" & !(calendar_week %in% c("27", "28", "29", "30", "31", "32", "33"))))
+
+                          
+             
+
+vwc.all$calendar_week <- droplevels(vwc.all$calendar_week)
+
+```
+
+```{r}
+#fixing calendar_ week issue: 
+# 2024 & 2025 are missing Week 28...
+#2025 also missing week 32
+
+ vwc.all %>%
+     group_by(year) %>%
+     summarize(
+         unique_weeks = n_distinct(calendar_week),
+         weeks_list = paste(sort(unique(calendar_week)), collapse = ", ")
+     )
+
+sort(unique(vwc.all$date))
+
+unique(vwc.all$calendar_week[vwc.all$year == 2024])
+unique(vwc.all$calendar_week[vwc.all$year == 2025])
+
+# vwc.all %>%
+#   group_by(year, calendar_week) %>%
+#   summarize(mean_VWC = mean(VWC, na.rm = TRUE), .groups = "drop")
+
+levels(vwc.all$calendar_week)
+```
+
+
+##vwc models
+```{r}
+#Treatment by year models:
+vwc.lmer.2025 <- lmer(VWC~treatment + (1|date) + (1|transectplot) , data = vwc.2025)
+anova(vwc.lmer.2025) 
+
+vwc.lmer.2024 <- lmer(VWC~treatment + (1|date) + (1|transectplot) , data = vwc.2024)
+Anova(vwc.lmer.2024) 
+
+#Cross Year Model:
+vwc.lmer.all.years <- lmer(VWC ~ year + (1|transectplot)  , data = vwc.all)
+anova(vwc.lmer.all.years)
+
+
+
+#Full model (lmer):
+vwc.lmer.all.years.treatment <- lmer(VWC ~  year * treatment  * poly(calendar_week,2,raw=TRUE) + (1|transectplot), data = vwc.all) #add calendar date
+
+vwc.lmer.all.years.treatment <- lmer(VWC ~  year * treatment  * calendar_week  + (1|transectplot), data = vwc.all) #add calendar date
+
+Anova(vwc.lmer.all.years.treatment)
+
+#new 
+newdat<-data.frame(expand.grid(year=as.factor(c(2024,2025)),calendar_week=(seq(from=22,to=33,by=1)),treatment=as.factor(c('control','rainout')),transectplot=NA))
+
+newdat$pred<-predict(vwc.lmer.all.years.treatment,newdata=newdat,re.form=NA)
+ggplot(aes(x=calendar_week,y=pred,color=treatment),data=newdat)+geom_line()+geom_point(aes(y=VWC),data=vwc.all)+facet_wrap(.~year)
+
+# test24<-data.frame(calendar_week=seq(27,33,1),year=rep(as.factor(2024))
+# test25<-data.frame(calendar_week=seq(22,33,1),year=as.factor(2025))
+# testemmeans<-as.list(rbind(test24,test25))
+
+emmeans(vwc.lmer.all.years.treatment,~treatment|calendar_week*year,at=list(cal_weeks))
+
+emtrends(vwc.lmer.all.years.treatment,pairwise~year*treatment,var="calendar_week")
+
+#---------------------
+
+#vwc emmeans
+
+cal_weeks <- sort(unique(vwc.all$calendar_week))
+
+# Estimated marginal means by year
+vwc.emm <- emmeans(vwc.lmer.all.years.treatment, ~ treatment | year )
+summary(vwc.emm)
+
+#do separate emmeans for each year then compare across years
+
+
+#EMMeans for every treatment × week combination within each year 
+vwc.emm.week <- emmeans(vwc.lmer.all.years.treatment, ~ treatment * calendar_week | year, at = list(calendar_week = cal_weeks))
+summary(vwc.emm.week)
+  
+#Emmeans treatment differences within each year-week
+vwc.emm.treatweek <- emmeans(vwc.lmer.all.years.treatment, ~ treatment | calendar_week, at = list(calendar_week = cal_weeks))
+summary(vwc.emm.treatweek)
+
+       
+
+# Pairwise comparison of treatments within each year
+# tukey gives adjusted p-values 
+pairs(vwc.emm, adjust = "fdr")
+
+#contrast between treatments in each week
+#contrast(vwc.emm.week, method = "pairwise", adjust = "fdr")
+
+#effect size- emmeans effect size function:
+vwc.effect.size.em <- eff_size(vwc.emm,
+         sigma = sigma(vwc.lmer.all.years.treatment),
+         edf = df.residual(vwc.lmer.all.years.treatment))
+vwc.effect.size.em
+
+
+#Cohens D - effect size:
+
+#install.packages("effsize")  # only need to run this once
+#library(effsize)  
+vwc.all.treatment.cohend <- cohen.d(
+  vwc.all$VWC,
+  vwc.all$treatment,
+  pooled = TRUE # pooled standard deviation
+)
+
+vwc.all.treatment.cohend
+
+#2025 vwc cohens D
+vwc.2025.cohend <- cohen.d(
+  vwc.2025$VWC,
+  vwc.2025$treatment,
+  pooled = TRUE # pooled standard deviation
+)
+
+vwc.2025.cohend
+
+#2024 vwc cohens D
+vwc.2024.cohend <- cohen.d(
+  vwc.2024$VWC,
+  vwc.2024$treatment,
+  pooled = TRUE # pooled standard deviation
+)
+
+vwc.2024.cohend
+
+
+#Cross year Cohens D
+vwc.all.year.cohend <- cohen.d(
+  vwc.all$VWC,
+  vwc.all$year,
+  pooled = TRUE # pooled standard deviation
+)
+
+vwc.all.year.cohend
+
+```
+
+
+##vwc plots
+```{r}
+vwc.2024 %>%
+  group_by(treatment) %>%
+  summarize(mean_VWC = mean(VWC, na.rm = TRUE),
+            se = sd(VWC, na.rm = TRUE)/sqrt(n())) %>%
+  ggplot(aes(x = treatment, y = mean_VWC)) +
+  geom_col() +
+  geom_errorbar(aes(ymin = mean_VWC - se, ymax = mean_VWC + se), width = 0.2)
+
+# Year Comparison 
+vwc.all$treatment <- factor(vwc.all$treatment, levels = c("control", "rainout"))
+
+vwc.all %>%
+  group_by(year, treatment) %>%
+  summarize(mean_VWC = mean(VWC, na.rm = TRUE),
+            se = sd(VWC, na.rm = TRUE)/sqrt(n()),
+            .groups = "drop") %>%
+  ggplot(aes(x = treatment, y = mean_VWC, fill = treatment)) +
+  scale_fill_manual(values = treatment_colors) +
+  #scale_color_manual(values = treatment_colors) +
+  scale_y_continuous(limits = c(0, NA)) +
+  geom_col(color = "white") +
+  geom_errorbar(aes(ymin = mean_VWC - se, ymax = mean_VWC + se), width = 0.2) +
+  facet_wrap(~ year) +
+  labs(x = "Treatment", y = "Soil volumetric water content (VWC)",
+       title = "") +
+  theme_classic() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "gray80", size = 0.3),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none")
+
+#raw values of VCW in 2024 and 2025:
+vwc.all %>%
+  ggplot(aes(x = treatment, y = VWC, color = treatment)) +
+  geom_boxplot(fill = NA, linewidth = 0.8) +
+  scale_color_manual(values = treatment_colors) +
+  scale_y_continuous(limits = c(0, NA)) +
+  facet_wrap(~ year) +
+  labs(
+    x = "Treatment",
+    y = "Mean soil volumetric water content (VWC)",
+    title = ""
+  ) +
+  theme_classic() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "gray80", linewidth = 0.3),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+
+#By month VWC
+ggplot(vwc.all %>% mutate(year = factor(year, levels = c(2024, 2025))), aes(x = date, y = VWC, color = treatment, group = treatment)) +
+  geom_point(alpha = 0.6) +                            # raw measurements
+  scale_color_manual(values = treatment_colors) +
+  geom_line(stat = "summary", fun = mean, linewidth = 1) +  # mean line per treatment
+  facet_wrap(~ year, ncol = 1, scales = "free_x") +   # top: 2024, bottom: 2025
+  labs(x = "Date", y = "Soil volumetric water content (VWC)",
+       color = "Treatment") +
+  #scale_x_date(date_breaks = "1 month", date_labels = "%b")+
+  theme_classic() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "gray80", size = 0.3),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+```
+
+
+#Flower Counts
+
+## Data Cleaning
+```{r}
+
+focalspecies.2024 <- c("delphinium", "erigeron_flagellaris", "umbellatum", "eremogone_congesta", "potentilla_hippiana", "galium_boreale", "heterotheca_villosa", "heliomeris_multiflora")
+focalspecies.2025 <- c("clay","delphinium", "umb", "flag", "pot", "congesta", "het", "helio", "galium" )
+
+flowercounts.2024 <- read_sheet("1YR7lBNf5s9Drw9Ix61J8wUtKQO-XuZmXrRMhgktsc5k", sheet="2024") %>%
+                      filter(plant!="na") %>%  #2024-07-02, 4f - no flowers open wrote na
+                      mutate(transectplot=paste0(transect,plot)) %>%
+                      left_join(rainout.treatments) %>% 
+                      mutate(week_num = factor(week(date)-26)) %>% 
+                      group_by(date, week_num, transect, plot,transectplot, plant, treatment) %>% 
+                      filter(! (week_num== "1"& scribe =="sb")) %>% #removes sb's duplicate flower counts in week 1
+                      summarize(flower_number=mean(flower_number)) %>% 
+                      filter(plant%in% focalspecies.2024) %>% 
+                      #rename plant names
+                      mutate(plant = dplyr::recode(plant,
+                                           "erigeron_flagellaris" ="flag" ,
+                                           "eremogone_congesta" = "congesta",
+                                           "potentilla_hippiana" = "potentilla",
+                                           "galium_boreale" = "galium",
+                                           "heterotheca_villosa" = "heterotheca",
+                                           "heliomeris_multiflora" = "heliomeris")) %>% 
+                      mutate(year = 2024) %>%   
+                      ungroup()
+
+
+flowercounts.2025 <- read_sheet("1ObUirLHnFpHzpepx_tiXLPFxXfSVSJ6s9IAa4_Kd25o", na="") %>% 
+                      mutate(flower_number = as.numeric(flower_number)) %>%
+                      left_join(rainout.treatments) %>% 
+                      group_by(date, week_num_flowcounts, transect, plot,transectplot, plant, treatment) %>% 
+                      #summarize(flower_number=mean(flower_number)) %>% 
+                      #remove species with little or no data:
+                      filter(plant%in% focalspecies.2025) %>% 
+                      filter(!plant%in% "clay") %>% #remove claytonia becuase not measured in 2024
+                       
+                      mutate(plant = dplyr::recode(plant,
+                                            "clay" = "claytonia",
+                                            "umb" = "umbellatum",
+                                            "pot" = "potentilla",
+                                            "het" = "heterotheca",
+                                            "helio" = "heliomeris")) %>% 
+                        mutate(year = 2025) %>% 
+                        ungroup()
+
+setdiff( flowercounts.2025$plant, flowercounts.2024$plant)
+library(lubridate)
+
+all.flowercounts <- bind_rows(flowercounts.2024, flowercounts.2025) %>% 
+                            select(-week_num, -week_num_flowcounts) %>% 
+                            mutate(calendar_week = week(date))   #adds calendar week based on the date column
+
+  
+
+unique(all.flowercounts$plant)
+
+```
+
+##Flower Models - treatment
+```{r}
+
+#glmmTMB for flower number
+#Zero-inflated negative binomial mixed model with plant-specific dispersion:
+
+flowercounts.forglmm <- all.flowercounts %>% 
+                            filter(!is.na(flower_number)) %>% #one galium has NA
+                            mutate(flower_number = as.integer(flower_number)) %>% 
+                            filter(!plant%in%"delphinium") %>% 
+                            filter(!plant%in%"galium")
+
+flower.glmm.full <- glmmTMB(flower_number ~ plant * treatment + (1|transect), 
+                #ziformula = ~plant*treatment,
+                dispformula = ~plant, #Variance differs among plant species, not much among years
+                family = nbinom2, 
+                data = flowercounts.forglmm)
+
+AIC(flower.glmm.full)
+
+summary(flower.glmm.full)
+
+table(flowercounts.forglmm$plant, flowercounts.forglmm$year)
+
+
+
+flowercounts.glmm.dropinteraction <- glmmTMB(flower_number ~ year + plant + (1|transect), 
+                            #ziformula = ~ year + plant + flower_number, 
+                            dispformula = ~plant, 
+                            family = nbinom2, 
+                            data = flowercounts.forglmm)
+AIC(flowercounts.glmm.dropinteraction)
+summary(flowercounts.glmm.dropinteraction)
+
+
+anova(flower.glmm.full, flowercounts.glmm.dropinteraction) #will do a likelihood ratio test of the effect of the interaction.
+
+
+```
+
+
+##Flower Model - year
+Does flower number differ by year (per species)
+```{r}
+
+avg.flowers.year <- all.flowercounts %>% group_by(plant, year) %>%
+                            summarize(mean_flowers = mean(flower_number, na.rm = TRUE),
+                                sd_flowers = sd(flower_number, na.rm = TRUE),
+                                n = n())
+
+ggplot(all.flowercounts, aes(x = factor(year), y = flower_number, fill = factor(year))) +
+  geom_boxplot() +
+  facet_wrap(~plant, scales = "free_y") +
+  labs(x = "Year", y = "Flower number", fill = "Year")
+
+all.flower.year.lmer <- lmer(flower_number ~ plant * factor(year) +treatment + (1| calendar_week), data = all.flowercounts)
+summary(all.flower.year.lmer)
+
+anova(all.flower.year.lmer)
+
+all.flower.year.model <- all.flowercounts %>% filter(!plant%in% "delphinium") %>%  
+  group_by(plant) %>%
+  nest() %>%
+  mutate(
+    model = map(data, ~ lmer(flower_number ~ factor(year) + (1|transect/transectplot), data = .x)),
+    anova_table = map(model, ~ tidy(anova(.x)))  # convert ANOVA to tibble
+  ) %>%
+  select(plant, anova_table) %>%
+  unnest(anova_table) %>%
+  mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+View(all.flower.year.model)
+
+#plot flower number year to year
+
+# all.flowercounts %>%
+#   filter(!plant %in% "delphinium") %>%
+#   ggplot(aes(x = factor(year),
+#              y = flower_number)) +
+#   geom_boxplot(outlier.shape = NA) +
+#   geom_jitter(width = 0.15, alpha = 0.4) +
+#   facet_wrap(~ plant, scales = "free_y") +
+#   labs(x = "Year",
+#        y = "Flower number") +
+#   theme_classic()
+
+flowernumber.sig.species <- data.frame(
+  plant = c("congesta", "heterotheca", "heliomeris"),
+  label = "*")
+
+all.flowercounts %>%
+  filter(!plant %in% "delphinium") %>%
+  group_by(plant, year) %>%
+  summarise(mean_flowers = mean(flower_number, na.rm = TRUE),
+            se = sd(flower_number, na.rm = TRUE)/sqrt(n()),
+            .groups = "drop") %>%
+  ggplot(aes(x = factor(year),
+             y = mean_flowers,
+             group = plant)) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = mean_flowers - se,
+                    ymax = mean_flowers + se),
+                width = 0.1) +
+  facet_wrap(~ plant, scales = "free_y") +
+  labs(x = "Year",
+       y = "Mean flower number ± SE") +
+  geom_text(data = flowernumber.sig.species,
+            aes(x = 1.5, y = Inf, label = label),
+            inherit.aes = FALSE,
+            vjust = 1.5,
+            size = 6) +
+  theme_classic()
+
+
+#but this model is looking across the entire year, do I need to downsample bc 2024 had much less data???
+glmm.all.flower.year.model <- all.flowercounts %>%
+  filter(!plant %in% "delphinium") %>%
+  group_by(plant) %>%
+  nest() %>%
+  mutate(
+    model = map(data, ~ {
+      .x <- .x %>% mutate(flower_number = round(flower_number))
+      glmer(flower_number ~ factor(year) + (1 | transectplot),
+            family = poisson,
+            data = .x)
+    }),
+    anova_table = map(model, ~ broom::tidy(.x, effects = "fixed"))
+  ) %>%
+  select(plant, anova_table) %>%
+  unnest(anova_table) %>%
+  mutate(sig = if_else(p.value < 0.05, "*", ""))
+View(glmm.all.flower.year.model)
+
+
+```
+
+##Is flower timining different (onset of timing) between years.
+
+```{r}
+
+flower.timing <- all.flowercounts %>% 
+          #filter(!plant%in% "delphinium") %>% #filter delph bc didn't do flower counts early enough in 2024
+          group_by(plant, year) %>%
+          summarize(
+            first_week = min(calendar_week, na.rm = TRUE),  # flowering onset
+            last_week  = max(calendar_week, na.rm = TRUE),  # flowering end
+            duration   = last_week - first_week + 1,        # flowering duration in weeks
+            .groups = "drop")
+
+
+#Pivot wider to compare 2024 vs 2025
+flower.timing.wide <- flower.timing %>%
+                      pivot_wider(
+                      names_from = year,
+                      values_from = c(first_week, last_week, duration),
+                      names_sep = "_") %>% 
+                    mutate(
+                    onset_diff    = first_week_2025 - first_week_2024,
+                    end_diff      = last_week_2025 - last_week_2024,
+                    duration_diff = duration_2025 - duration_2024)
+View(flower.timing.wide)
+#Positive values → later start/end or longer duration in 2025.
+#Negative values → earlier start/end or shorter duration in 2025.
+
+
+
+#plot
+flower.timing.long <- flower.timing %>%
+        pivot_longer(
+          cols = c(first_week, last_week, duration),
+          names_to = "metric",
+          values_to = "week_value")
+
+ggplot(all.flowercounts,
+       aes(x = calendar_week,
+           y = flower_number,
+           color = plant,
+           group = plant)) +
+  #scale_fill_manual(values = palette_gradient)+
+  stat_summary(fun = mean, geom = "line", linewidth = 1) +
+  scale_x_continuous(breaks = seq(min(all.flowercounts$calendar_week),
+                                  max(all.flowercounts$calendar_week),
+                                  by = 1)) +
+   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+  facet_wrap(~ year, ncol = 1) +
+  labs(
+    x = "Calendar week",
+    y = "Mean flower number",
+    color = "Plant species"
+  ) +
+  theme_classic() +
+  theme(
+    panel.grid.minor = element_blank(),       # remove minor grid lines
+    panel.grid.major = element_line(color = "lightgrey", size = 0.3)  # keep major grid lines
+  )
+
+```
+
+##flower n
+Sample size of flower counts in 2024 vs 2025 for each plant species & treatment
+
+n flower counts is the number of times a plant was counted per year (and per treatment below) 
+```{r}
+#total number of flowers observed per plant × plot × year
+n.flowers.years <- all.flowercounts %>%
+  group_by(plant, year) %>%
+  summarise(total_flowers = sum(flower_number, na.rm = TRUE), .groups = "drop")
+
+#Total number of flowers counted per plant species × transect plot × year × treatment
+n.flowers.treat <- all.flowercounts %>%
+  group_by(plant, transectplot, year, treatment) %>%
+  summarise(total_flowers = sum(flower_number, na.rm = TRUE), .groups = "drop")
+
+#made wide format 
+n.flowers.treat.wide <- n.flowers.treat %>%
+  pivot_wider(
+    names_from = plant,
+    values_from = total_flowers,
+    values_fill = 0
+  )
+
+#heatmap of flower number
+library(stringr)
+
+#need to add summarised total flowers to data
+flower.number.heatmap.data <- all.flowercounts %>%
+  group_by(plant, transect,transectplot,plot, year, treatment) %>%
+  summarise(total_flowers = sum(flower_number, na.rm = TRUE), .groups = "drop")
+
+plot_flower_heatmap <- function(data, species_name) {
+  
+  df <- data %>% filter(plant == species_name)
+  
+  ggplot(df, aes(x = plot, y = transect, fill = total_flowers)) +
+    geom_tile(color = "white") +
+    
+    facet_grid(year ~ treatment ) +
+    
+    scale_y_reverse(breaks = 1:10) +
+    
+    scale_fill_gradient(
+      low = "white",
+      high = "darkgreen",
+      name = "Total flowers"
+    ) +
+    
+    theme_classic() +
+    labs(
+      x = "Plot",
+      y = "Transect",
+      title = species_name
+    )
+}
+
+
+plot_flower_heatmap(flower.number.heatmap.data, "congesta")
+
+plot_flower_heatmap(flower.number.heatmap.data, "heterotheca")
+
+plot_flower_heatmap(flower.number.heatmap.data, "heliomeris")
+
+plot_flower_heatmap(flower.number.heatmap.data, "flag")
+
+plot_flower_heatmap(flower.number.heatmap.data, "potentilla")
+
+
+```
+
+
+# Morohology
+
+##morph year
+Match 2024 & 2025 data sets
+merge 
+model for each trait comparing year x trait of each plant species
+data vis 
+
+```{r}
+
+morph.2024 <- read_sheet("1fJuFDOMitdC6bdTm12XWBTZpX4u15uHdkf0y-Ilelw4") %>% 
+                    mutate(plot = tolower(as.character(plot))) %>% 
+                    mutate(year = 2024) %>%
+                    left_join(rainout.treatments) %>% 
+                    filter(!plant%in% c("micro white?!", " micro white", "pakera",
+                                        "campanula", "collomia", "sedum", "subalpinium",
+                                        "speciosus", "microwhite","micro white", 
+                                        "tall microwhite", "boechera stricta")) %>% 
+#some plants don't have length & width measurements, so this code uses only length if width=NA, otherwise takes the average.  
+                     mutate(
+                        average_flower_size = if_else(
+                        is.na(width),
+                        length,
+                        (length + width) / 2)) 
+
+morph.2025 <- read_sheet("1grngEjxQ6-uulNl_5yYdbmuajY2DXIGkWfHPBVV-3sM", na=c("")) %>%  
+            #remove rows with no tag number
+                filter( tag != "") %>% 
+                filter(!plant%in% c("clay","delphinium")) %>%
+                mutate(year = 2025) %>%
+                left_join(rainout.treatments)  %>% 
+                #some plants don't have length & width measurements, so this code uses only length if width=NA, otherwise takes the average.  
+                     mutate(
+                        average_flower_size = if_else(
+                        is.na(width),
+                        length,
+                        (length + width) / 2)) %>% 
+                    drop_na(average_flower_size)
+
+unique(morph.2025$plant)
+
+
+all.years.morph <- bind_rows(morph.2024,morph.2025) %>% 
+                    mutate(calendar_week = week(date)) %>% 
+                    select(year, date,calendar_week, observer, transect, transectplot,
+                           treatment, plant, tag, depth, length, width, 
+                           average_flower_size )  
+          
+#if you want to add in inflo height list above ^
+
+
+#plot
+# Year only - flower size
+ggplot(all.years.morph %>% filter(!plant%in% "galium"), aes(x = factor(year), y = average_flower_size)) +
+  #scale_fill_manual(values = year_colors)+
+  geom_boxplot() +
+  facet_wrap(~plant, scales = "free_y") +
+  labs(x = "Year", y = "Avg Flower Size", fill = "Year") +
+  geom_text(data = avgflowersize.sig.species,
+            aes(x = 1.5, y = Inf, label = label),
+            inherit.aes = FALSE,
+            vjust = 1.5,
+            size = 6) +
+  theme_classic()
+
+
+```
+
+## morph avg size
+
+```{r}
+#average flower size 2024 vs 2025
+#Q: Use anova or Anova???
+
+avg.flower.size.all.years.model <- all.years.morph %>% 
+  #galium has a lot of entries where depth, length & width all == NA
+  filter(!plant%in% "galium") %>%
+  filter(!if_all(c(depth, length, width), is.na)) %>%  
+  #filter(!plant%in% "galium") %>% #galium doesn't have enough data
+  group_by(plant) %>%
+  nest() %>%
+  mutate(
+    model = map(data, ~ lmer(average_flower_size ~ factor(year)*treatment + (1|observer) + (1|transectplot), data = .x)),
+    #ANVOA table for each species:
+    anova_table = map(model, ~ {
+      broom::tidy(car::Anova(.x)) %>%
+        dplyr::rename(F_value = statistic)}),
+    # Estimated marginal means for each species
+    emmeans_table = map(model, 
+            ~ emmeans(.x, ~ factor(year) * treatment) %>%
+            as.data.frame()),
+    # Pairwise contrasts of treatment within each year
+    contrasts_table = map(model, ~ emmeans(.x, pairwise ~ treatment | factor(year))$contrasts %>%
+                            as.data.frame() %>%
+                            rename(
+                              contrast = contrast,
+                              estimate = estimate,
+                              SE = SE,
+                              df = df,
+                              t.ratio = t.ratio,
+                              p.value = p.value))
+    ) %>%
+  select(plant, anova_table, emmeans_table, contrasts_table) #%>%
+ # unnest(c(anova_table, emmeans_table))# %>%
+ # mutate(adjusted.pvalue= p.adjust(p.value, method="fdr")) %>% 
+ # mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+#view(avg.flower.size.all.years.model )
+
+  # ANOVA table 
+anova.flower.size <- avg.flower.size.all.years.model %>%
+  select(plant, anova_table) %>%
+  unnest(anova_table) %>% 
+  mutate(adjusted.pvalue= p.adjust(p.value, method="fdr")) %>%
+  mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+View(anova.flower.size)
+
+#  emmeans table 
+emmeans.flower.size <- avg.flower.size.all.years.model %>%
+  select(plant, emmeans_table) %>%
+  unnest(emmeans_table)
+View(emmeans.flower.size)
+
+#   Pairwise contrasts of treatment within each year 
+contrasts.flower.size <- avg.flower.size.all.years.model %>%
+  select(plant, contrasts_table) %>%
+  unnest(contrasts_table) %>% 
+  mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+View(contrasts.flower.size)
+
+
+#   Percent change
+
+#Percent change between treatments within each year
+# flower.size.pct.change.treat.year = percent change from control → drought within each year.
+flower.size.pct.change.treat.year <- emmeans.flower.size %>%
+  select(plant, year, treatment, emmean) %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = emmean
+  ) %>%
+  mutate(
+    pct_change_drought_vs_control = 100 * (`rainout` - `control`) / `control`
+  ) %>%
+  select(plant, year, pct_change_drought_vs_control)
+
+View(flower.size.pct.change.treat.year)
+
+#Percent change between years within each treatment
+# flower.size.year.pct.change = = percent change from 2024 → 2025 within the same treatment.
+flower.size.year.pct.change <- emmeans.flower.size %>%
+  select(plant, year, treatment, emmean) %>%
+  pivot_wider(names_from = year, values_from = emmean) %>%
+  mutate(
+    pct_change_year = 100 * (`2025` - `2024`) / `2024`
+  ) %>%
+  select(plant, treatment, pct_change_year)
+View(flower.size.year.pct.change)
+
+
+```
+
+## Plot - Flower Size
+
+```{r}
+#average flower size plot:
+
+avgflowersize.sig.species.year.diffs <- data.frame(
+  plant = c("congesta", "heterotheca", "heliomeris", "potentilla","umbellatum"),
+  label = "*")
+
+flowersize.sig.treat.diffs.2025 <- data.frame(
+  plant = c("potentilla", "flagellaris", "heterotheca", "congesta", "heliomeris"),
+  year = 2025,
+  x = 2,  # x-position for 2025 (factor(year))
+  y = c(23, 25, 32, 16, 36), # adjust y-position above boxplots per species
+  #order ^: pot, flag, het, congesta, helio
+  label = "*"  # significance asterisk
+)
+
+#boxplot for average flower size:
+
+pd <- position_dodge(width = 1) #position of boxplots and jitter points
+
+all.years.morph %>% filter(!plant%in%"galium") %>% 
+  ggplot(aes(x = factor(year), y = average_flower_size, color = treatment)) +
+  geom_boxplot(fill = NA, linewidth = 0.8,
+               position = pd) +
+ # geom_jitter(aes(color = treatment),
+  #         alpha = 0.4, size = 0.9, position = pd) +
+  #scale_color_manual(values = treatment_colors) +
+  #scale_y_continuous(limits = c(0, NA)) +
+ # facet_wrap(~ plant) +
+  facet_wrap(~plant, scales = "free_y") +
+  labs(
+    x = "Year",
+    y = "Average flower size",
+    color = "Treatment"
+  ) +
+  geom_text(
+    data = avgflowersize.sig.species.year.diffs,
+    aes(x = 1.5, y = Inf, label = label),
+    inherit.aes = FALSE,
+    vjust = 1.5,
+    size = 6
+  ) +
+  geom_text(
+    data = flowersize.sig.treat.diffs.2025,
+    aes(x = x, y = y, label = label),
+    inherit.aes = FALSE,
+    size = 6) +
+  theme_classic() +
+    theme(
+    panel.grid.major.x = element_blank(),        # remove vertical lines
+    panel.grid.major.y = element_line(color = "grey70", linewidth = 0.3), # horizontal lines
+    panel.grid.minor = element_blank())
+
+
+#Full plot
+# ggplot(
+#   all.years.morph %>% filter(!plant %in% "galium"),
+#   aes(x = factor(year), y = average_flower_size, fill = treatment)
+# ) +
+#   geom_boxplot(position = position_dodge(width = 0.8)) +
+#   facet_wrap(~plant, scales = "free_y") +
+#   labs(
+#     x = "Year",
+#     y = "Average Flower Size",
+#     fill = "Treatment"
+#   ) +
+#   geom_text(
+#     data = avgflowersize.sig.species.year.diffs,
+#     aes(x = 1.5, y = Inf, label = label),
+#     inherit.aes = FALSE,
+#     vjust = 1.5,
+#     size = 6
+#   ) +
+#   geom_text(
+#     data = flowersize.sig.treat.diffs.2025,
+#     aes(x = x, y = y, label = label),
+#     inherit.aes = FALSE,
+#     size = 6) +
+#   theme_classic()
+
+```
+
+
+##morph depth
+
+```{r}
+
+#Depth: 
+
+depth.all.years.model <- all.years.morph %>% 
+  filter(!plant%in% "galium") %>% #galium doesn't have enough data
+  group_by(plant) %>%
+  nest() %>%
+  mutate(
+    model = map(data, ~ lmer(depth ~ factor(year) * treatment + (1|observer) +(1|transect/transectplot), data = .x)),
+    #ANVOA table for each species:
+    anova_table = map(model, ~ {
+      broom::tidy(car::Anova(.x)) %>%
+        dplyr::rename(F_value = statistic)}),
+    # Estimated marginal means for each species
+    emmeans_table = map(model, 
+            ~ emmeans(.x, ~ factor(year) * treatment) %>%
+            as.data.frame()),
+    # Pairwise contrasts of treatment within each year
+    contrasts_table = map(model, ~ emmeans(.x, pairwise ~ treatment | factor(year))$contrasts %>%
+                            as.data.frame() %>%
+                            rename(
+                              contrast = contrast,
+                              estimate = estimate,
+                              SE = SE,
+                              df = df,
+                              t.ratio = t.ratio,
+                              p.value = p.value))
+    ) %>%
+  select(plant, anova_table, emmeans_table, contrasts_table)
+
+
+# ANOVA table 
+anova.flower.depth <- depth.all.years.model %>%
+  select(plant, anova_table) %>%
+  unnest(anova_table) %>% 
+  mutate(adjusted.pvalue= p.adjust(p.value, method="fdr")) %>%
+  mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+View(anova.flower.depth)
+
+#  emmeans table 
+emmeans.flower.depth <- depth.all.years.model %>%
+  select(plant, emmeans_table) %>%
+  unnest(emmeans_table)
+View(emmeans.flower.depth)
+
+#   Pairwise contrasts of treatment within each year 
+contrasts.flower.depth <- depth.all.years.model %>%
+  select(plant, contrasts_table) %>%
+  unnest(contrasts_table) %>% 
+  mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+View(contrasts.flower.depth)
+
+
+
+
+#flower depth plot:
+flowerdepth.sig.species <- data.frame(
+  plant = c("congesta", "heterotheca", "flagellaris", "potentilla","umbellatum"),
+  label = "*")
+
+#Year only
+ggplot(all.years.morph %>%  filter(!plant%in% "galium"), aes(x = factor(year), y = depth)) +
+  geom_boxplot() +
+  facet_wrap(~plant, scales = "free_y") +
+  labs(x = "Year", y = "Flower depth", fill = "Year") +
+  geom_text(data = flowerdepth.sig.species,
+            aes(x = 1.5, y = Inf, label = label),
+            inherit.aes = FALSE,
+            vjust = 1.5,
+            size = 6) +
+  theme_classic()
+
+#Year & Treatment
+
+flower.depth.year.sig.label <- data.frame(
+  plant = c("congesta", "heterotheca", "potentilla","umbellatum", "flagellaris"),
+  label = "*")
+
+flowerdepth.treat.sig.label <- data.frame(
+  plant = c("flagellaris", "heterotheca"),
+  year = 2025,
+  x = 2,  # x-position for 2025 (factor(year))
+  y = c(7, 11), # adjust y-position above boxplots per species
+  #order ^: pot, flag, het, congesta, helio
+  label = "*"  # significance asterisk
+)
+pd <- position_dodge(width = 1) #position of boxplots and jitter points
+
+all.years.morph %>% filter(!plant%in%"galium") %>% 
+  ggplot(aes(x = factor(year), y = depth, color = treatment)) +
+  geom_boxplot(fill = NA, linewidth = 0.8,
+               position = pd) +
+ # geom_jitter(aes(color = treatment),
+  #         alpha = 0.4, size = 0.9, position = pd) +
+  #scale_color_manual(values = treatment_colors) +
+  #scale_y_continuous(limits = c(0, NA)) +
+  #facet_wrap(~ plant) +
+  facet_wrap(~plant, scales = "free_y") +
+  labs(
+    x = "Year",
+    y = "Flower Depth",
+    color = "Treatment"
+  ) +
+  geom_text(
+    data = flower.depth.year.sig.label,
+    aes(x = 1.5, y = Inf, label = label),
+    inherit.aes = FALSE,
+    vjust = 1.5,
+    size = 6
+  ) +
+  geom_text(
+    data = flowerdepth.treat.sig.label,
+    aes(x = x, y = y, label = label),
+    inherit.aes = FALSE,
+    size = 6) +
+    theme_classic() +
+    theme(
+    panel.grid.major.x = element_blank(),        # remove vertical lines
+    panel.grid.major.y = element_line(color = "grey70", linewidth = 0.3), # horizontal lines
+    panel.grid.minor = element_blank())
+
+```
+
+
+##morph treatment
+
+```{r}
+all.morph.traits <- c( "average_flower_size")
+
+#year x treatment morph model for average flower size
+
+morph.treatment.year.models <- all.years.morph %>% 
+            filter(!plant%in%"galium") %>% 
+            pivot_longer(all_of(all.morph.traits), names_to = "trait") %>% 
+            group_by(trait,plant) %>% nest() %>% 
+            mutate(morph.trait.lmer=map(data, ~lmer(value~treatment*year + (1|transect), data=.x)), 
+            morph.Anova= map(morph.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
+            unnest(morph.Anova)%>%
+            dplyr::select(-data) %>% #-morph.trait.lmer
+            mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+            filter(term!="(Intercept)") %>% 
+            mutate(emmeans=map(morph.trait.lmer, ~tidy(emmeans(.x, specs=c("treatment") )) %>% select(-p.value))) %>% 
+            select(-morph.trait.lmer)
+
+
+#only 2024 treatment morph
+morph.treatment.models.2024 <- morph.2024 %>% pivot_longer(all_of(all.morph.traits), names_to = "trait") %>% group_by(trait,plant) %>% nest() %>% 
+      #filter(!plant%in% c("micro white?!", " micro white", "pakera")) %>% 
+      mutate(morph.trait.lmer=map(data, ~lmer(value~treatment + (1|transect), data=.x)), 
+      morph.Anova= map(morph.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
+      unnest(morph.Anova)%>%
+      dplyr::select(-data) %>% #-morph.trait.lmer
+      mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      filter(term!="(Intercept)") %>% 
+       mutate(emmeans=map(morph.trait.lmer, ~tidy(emmeans(.x, specs=c("treatment") )) %>% select(-p.value)))
+
+#kable(morph.models.everything, digits=3) #spits out model into table
+
+#emmeans table 
+
+morph.treatment.emmeans.2024 <- morph.treatment.models.2024 %>% dplyr::select(-morph.trait.lmer, -term, -statistic, -df ) %>% 
+      #mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+      unnest(emmeans)  
+    
+#kable(morph.treatment.emmeans.2024, digits=3) #spits out model into table
+
+
+
+
+```
+
+##morph n
+```{r}
+#total number of flowers observed per plant × plot × year
+n.morph.years <- all.years.morph %>%
+  group_by(plant, year) %>%
+  summarise(total_flowers_measured = round(sum(average_flower_size, na.rm = TRUE)), .groups = "drop")
+
+
+
+```
+
+
+# Visitation Rate
+TODO: how to deal with different number of weeks observed? 2024 has like 6 weeks, 2025 has 12.... downsample? 
+Total number of visits different?
+Average visits different? 
+Visits to plant species different?
+Visits by poll groups different? 
+
+After standardizing for flower number, do we see differences in visits by insects? 
+
+```{r}
+
+library(hms)
+
+vrate.cleaned.24 <- read_sheet("1N3HmtcG3Rv4smOS3-SWdpyHAuH3oLvK2KgzWG4JQmNY", na=c("na","","NA"))  %>% 
+                mutate(week_num=factor(week_num)) %>% 
+                select( -end, -notes, -noyce_data_entry) %>% 
+                 mutate(insect_class= fct_collapse(insect_class, 
+                       beetle = c("beetle", "beattle"), 
+                       lepidoptera= c("butterfly", 
+                                "checkerspot butterfly", "moth"), 
+                       sol_bee= c( "bee", "carpenter bee"), 
+                       fly=c("fly", "hover fly", "hoverfly",
+                             "syrphid fly", "beefly", "bee fly"))) %>% 
+                      #removed beetles and wasps from dataset
+                      filter(!insect_class%in%c("beetle", "wasp")) %>%   
+                      mutate(size= fct_collapse(size, 
+                            big= c("l", "m", "m/l"), 
+                            small = c("t","s", "t/s","s/t", "s/m"))) %>% 
+                      #changes NAs in data, assigns NA for sol bee to small size class
+                      mutate(size = if_else(is.na(size) & 
+                                      insect_class== "sol_bee", "small", size)) %>% 
+                      mutate(size = if_else(is.na(size) & 
+                                      insect_class== "bombus", "big", size)) %>% 
+                      mutate(size = if_else(is.na(size) & 
+                                      insect_class== "lepidoptera", "big", size)) %>% 
+                      #NOTE: many "fly" insect_class are NA but I don't know the size.... so put placeholder "unknown"
+                      mutate(size = if_else(is.na(size) &
+                                insect_class == "fly", "unkown", size)) %>% 
+                      #assigns NAs (replaces the NaNs) to rows with no size data
+                      mutate(insect_size=na_if(paste(size, insect_class), "NA NA")) %>% 
+                      #Keep zeros bc you need then for observation.windows but add place holder for plant and insect_class:
+                       #mutate(insect_class = if_else(
+                        #        is.na(insect_class),
+                        #        "no_insects",insect_class)) %>% #if insect_class is NA -> replace with no_insects
+                      #mutate(plant = if_else(is.na(plant), "no_visits", plant)) %>% #if plant=NA replace with no_visits
+                      #removing plants with little data
+                      filter(!plant%in% c("vicia_americana","senecio_integerrimus",
+                               "collomia_linearis","erigeron_speciosus",
+                               "boechera_stricta","ent","micro white",
+                               "campanula_rotundifolia", "eriogonum_subalpinum")) %>% 
+                      #rename plant speieces to match flower counts
+                      mutate(plant = dplyr::recode(plant,
+                                            "eriogonum_umbellatum" = "umbellatum",
+                                            "erigeron_flagellaris" = "flag",
+                                            "potentilla_hippiana" = "potentilla",
+                                            "heterotheca_villosa" = "heterotheca",
+                                            "heliomeris_multiflora" = "heliomeris",
+                                            "arenaria_congesta" = "congesta",
+                                            "galium_boreale" = "galium")) %>% 
+                      #remove columns to tidy data set
+                      select(-insect_family, -pollinator_group) %>% 
+                      #Creates new column flowers.per.plant.visited  
+                      #divides # of visits by # of plants visited in that observation bout
+                      mutate(flowers.per.plant.visited = case_when(
+                            is.na(plants_visited) ~ NA_real_,
+                            plants_visited == 0 ~ NA_real_,
+                     #if number of plants visited is > number of visits, assign flowers.per.plant.visited ==1
+                            plants_visited > visits ~ 1, 
+                            TRUE ~ visits / plants_visited)) %>% 
+                      rename(vrate24_week_num = week_num) %>% 
+                      #fix start column to be time only
+                      mutate(start = as_hms(start)) %>% 
+                      #add calendar week column: 
+                      mutate(calendar_week = week(date))  #adds calendar week based on the date column
+
+#prep for filling non-observed interactions with zeros in the data
+#define all possible insect_classes
+vrate24.insect.class <- vrate.cleaned.24 %>% 
+  distinct(insect_class) %>% 
+  filter(!is.na(insect_class))
+
+# define all plants observed
+vrate24.plants <- vrate.cleaned.24 %>%
+    distinct(plant) %>% 
+    filter(!is.na(plant))
+
+# define observation windows
+#one row per date × time × plot
+#uses calendar_week instead of vrate24_week_num bc some week numbers are wrong
+observation.windows.24 <- vrate.cleaned.24 %>%
+    distinct(date,calendar_week, start,  
+    transect, plot, transectplot)
+
+vrate.24.complete <-  observation.windows.24 %>%
+    #create all combinations of time x plants x insects (16,240 total possible combinations)
+    #Note: this does not include insect size! 
+    crossing(vrate24.plants, vrate24.insect.class) %>%
+    left_join(
+     vrate.cleaned.24,
+      by = c(
+        "date", "calendar_week", "start",
+        "transect", "plot", "transectplot",
+        "plant", "insect_class")) %>%
+    mutate(visits = replace_na(visits, 0)) %>%  #makes all NA visits = 0
+    mutate(plants_visited = replace_na(plants_visited, 0)) %>% 
+    mutate(year = 2024) %>% 
+    left_join(rainout.treatments, by = c("transect","transectplot", "plot")) %>% 
+    filter(!is.na(treatment)) %>% 
+    #Now must filter based on possible interactions where flower_number>0
+    left_join(flowercounts.2024) %>% 
+    #filter visits to only include an interaction if we recorded flower number for that plant during that week
+    #create new column T/F if flowers of that plant are open on that date
+    mutate(flower_present = !is.na(flower_number) & flower_number > 0) %>%
+    #removes all rows with FALSE (no flowers open) (goes from 16,000 -> 3,500 rows...)  
+    filter(flower_present) %>% 
+    #remove umbellatum recorded in August because flowers aren't open
+    filter(!(plant == "umbellatum" & date == as.Date("2024-08-08"))) %>% 
+    # Visits per hour (for 15-min observation windows)
+    mutate(visits.per.hr = visits * 4,
+   # Visits per flower per hour: only if flower_number > 0
+      visitsperflowerperhr = if_else(
+      !is.na(flower_number) & flower_number > 0,
+      (visits / flower_number) * 4,
+      NA_real_)) 
+  
+  
+  
+  #remove insect_class = no_insect because isn't an observation
+    #filter(!insect_class%in%"no_insects") #3,000 rows now
+    #NOTE: is this the best way to do this? maybe shouldn't include option for no_insects above....
+
+
+
+#..................... 2025 vrate ........................................
+vrate.cleaned.25 <- read_sheet("1Fogbr6sgAxgfnCr5DWvaeCdJNHonhp_mn--mfSsvhCo") %>% 
+                      mutate(week_num_vrate25=factor(week_num_vrate)) %>% 
+                      select(-week_num_vrate, - end, -data_cleaning_notes, -notes) %>% 
+                      #must include NA to keep observation windows with no interaction data
+                      filter(plant%in% c(NA, focalspecies.2025)) %>% 
+                      filter(!plant%in% "delphinium") %>% #no interaction data for delph
+                      #rename plant species to match flower counts
+                      mutate(plant = dplyr::recode(plant,
+                                            "umb" = "umbellatum",
+                                            "pot" = "potentilla",
+                                            "het" = "heterotheca",
+                                            "helio" = "heliomeris")) %>% 
+                     #combine butterfly and moth observations
+                      mutate(insect_class= fct_collapse(insect_class, 
+                                  lepidoptera= c("butterfly", "moth"))) %>% 
+                      filter(!insect_class%in% "wasp") %>%  #remove wasps
+                      
+                      mutate(start = as_hms(start)) %>% 
+                      #adds calendar week based on the date column 
+                      mutate(calendar_week = week(date))  %>% 
+                      mutate(flowers.per.plant.visited = case_when(
+                            is.na(plants_visited) ~ NA_real_,
+                            plants_visited == 0 ~ NA_real_,
+                     #if number of plants visited is > number of visits, assign flowers.per.plant.visited ==1
+                            plants_visited > visits ~ 1, 
+                            TRUE ~ visits / plants_visited)) 
+
+
+
+#prep for filling non-observed interactions with zeros in the data
+#define all possible insect_classes
+vrate25.insect.class <- vrate.cleaned.25 %>% 
+  distinct(insect_class) %>% 
+  filter(!is.na(insect_class))
+
+# define all plants observed
+vrate25.plants <- vrate.cleaned.25 %>%
+    distinct(plant) %>% 
+    filter(!is.na(plant))
+
+# define observation windows
+#one row per date × time × plot
+#uses calendar_week instead of vrate24_week_num bc some week numbers are wrong
+observation.windows.25 <- vrate.cleaned.25 %>%
+    distinct(date,calendar_week, start,  
+    transect, plot, transectplot)
+
+vrate.25.complete <-  observation.windows.25 %>%
+    #create all combinations of time x plants x insects (16,240 total possible combinations)
+    #Note: this does not include insect size! 
+    crossing(vrate25.plants, vrate25.insect.class) %>%
+    left_join(
+     vrate.cleaned.25,
+      by = c(
+        "date", "calendar_week", "start",
+        "transect", "plot", "transectplot",
+        "plant", "insect_class")) %>%
+    mutate(visits = replace_na(visits, 0)) %>%  #makes all NA visits = 0
+    mutate(plants_visited = replace_na(plants_visited, 0)) %>% 
+    mutate(year = 2025) %>% 
+    left_join(rainout.treatments) %>% 
+    #Now must filter based on possible interactions where flower_number>0
+    left_join(flowercounts.2025 %>% select(-treatment, -year, -transect,-plot), by = c("date","transectplot","plant"),relationship = "many-to-many") %>% 
+    #filter visits to only include an interaction if we recorded flower number for that plant during that week
+    #create new column T/F if flowers of that plant are open on that date
+    mutate(flower_present = !is.na(flower_number) & flower_number > 0) %>%
+    #removes all rows with FALSE (no flowers open) (goes from 16,000 -> 3,500 rows...)  
+    filter(flower_present) %>% 
+    #remove umbellatum recorded in August because flowers aren't open
+    #filter(!(plant == "umbellatum" & date == as.Date("2024-08-08"))) %>% 
+    # Visits per hour (for 15-min observation windows)
+    mutate(visits.per.hr = visits * 4,
+   # Visits per flower per hour: only if flower_number > 0
+      visitsperflowerperhr = if_else(
+      !is.na(flower_number) & flower_number > 0,
+      (visits / flower_number) * 4,
+      NA_real_))
+  
+  #combine vrate 2024 and 2025
+  #don't I need NAs for visits?? because you want every combination of insect and flower possible (based on open flowers). So there should be a lot of plant x insect with no visits..... both 2024 and 2025 data messed up need plant x insect combination with 0 visits
+
+all.years.vrate <- bind_rows(vrate.24.complete, vrate.25.complete) %>% 
+                    mutate(
+                      year = factor(year),
+                      plant = factor(plant),
+                      transectplot = factor(transectplot)) %>% 
+                    filter(!plant%in%"galium") #galium does not have enough visitation data for models
+
+
+all.years.vrate %>% filter(!visits.per.hr== 0) %>% #remove zeros!
+  ggplot(aes(x = year,
+             y = visits.per.hr,
+             color = plant)) +
+  geom_boxplot() +
+  facet_wrap(~ plant) +
+  theme_bw()
+
+
+
+ggplot(all.years.vrate,
+       aes(x = treatment,
+           y = visitsperflowerperhr,
+           color = treatment)) +
+  geom_point(aes(shape = factor(year)), position = position_dodge(width = 0.5), size = 2) +
+  facet_wrap(~ plant) +
+  theme_bw() +
+  labs(
+    x = "Treatment",
+    y = "Visits per flower per hr",
+    color = "Treatment",
+    shape = "Year"  )
+
+
+
+```
+
+##Models - vrate
+
+The conditional model asks: given that a plant is being visited, how many visits does it receive? The zero-inflation model asks: what predicts whether a plant receives any visits at all? 
+```{r}
+#library(glmmTMB)
+
+#glmmTMB with flower number in zi formula
+#Zero-inflated negative binomial mixed model with plant-specific dispersion:
+fit.year.treat.glmm <- glmmTMB(visits ~ plant*year*treatment + flower_number + (1 | transectplot), 
+                ziformula = ~plant*year*treatment + flower_number,
+            #need flower number in ziformula bc flower abundance is structurally important for zero probability
+                family = nbinom2(), 
+                data = all.years.vrate)
+
+AIC(fit.year.treat.glmm)
+
+summary(fit.year.treat.glmm)
+
+car::Anova(fit.year.treat.glmm, type = "III")
+
+
+fit.year.treat.glmm.dropinteraction <- glmmTMB(visits ~ year + plant + treatment + flower_number + (1|transectplot), 
+                            ziformula = ~ year + plant + treatment + flower_number, 
+                            family = nbinom2, 
+                            data = all.years.vrate)
+
+anova(fit.year.treat.glmm, fit.year.treat.glmm.dropinteraction) #will do a likelihood ratio test of the effect of the interaction.
+
+
+#emmeans
+visits.treat.diff.emms.glmm <-emmeans(fit.year.treat.glmm, pairwise ~ treatment | plant, type="response")
+visits.treat.diff.emms.glmm
+
+visits.year.diff.emms.glmm <- emmeans(fit.year.treat.glmm, pairwise ~ year | plant, type="response")
+visits.year.diff.emms.glmm
+
+
+visits.year.pct.decline <- as.data.frame(visits.year.diff.emms.glmm$emmeans) %>% 
+   dplyr::select(plant, year, response) %>%
+  tidyr::pivot_wider(names_from = year, values_from = response) %>%
+  mutate(percent_decline = ((`2024` - `2025`) / `2024`) * 100)
+visits.year.pct.decline
+
+```
+
+## visits by bombus
+
+```{r}
+
+
+bombus.visits <- all.years.vrate %>%
+  dplyr::filter(insect_class == "bombus")
+
+bombus.counts <- bombus.visits %>%
+  dplyr::count(plant, year, treatment)
+
+# Note: Bombus disappeared from multiple plants in 2025
+# so have to take out year*plant interaction in the zi model
+fit.bombus.year.treat.glmm <- glmmTMB(
+  visits ~ plant+year+treatment + 
+     plant:treatment + year:treatment +
+    flower_number + (1 | transectplot),
+  ziformula = ~ flower_number, 
+  #Bombus visits contain extreme zero inflation (80.7% zeros) so must reduce the zi formula
+  family = nbinom2(),
+  data = bombus.visits
+)
+
+AIC(fit.bombus.year.treat.glmm)
+
+summary(fit.bombus.year.treat.glmm)
+
+car::Anova(fit.bombus.year.treat.glmm, type = "III")
+
+#bombus emmeans
+bombus.treat.year.emms <- emmeans(fit.bombus.year.treat.glmm,
+                                   ~ treatment | plant)
+bombus.treat.year.emms
+
+#contrasts
+bombus.treat.diff.emms <- emmeans(fit.bombus.year.treat.glmm,
+                                  pairwise ~ treatment | plant,
+                                  type = "response")
+
+bombus.year.diff.emms <- emmeans(fit.bombus.year.treat.glmm,
+                                 pairwise ~ year ,
+                                 type = "response")
+
+
+ggplot(bombus.visits, aes(x = factor(year), y = visits, 
+                           color = treatment, shape = treatment)) +
+  geom_jitter(size = 2, alpha = 0.6, 
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.5)) +
+  
+  facet_wrap(~ plant, scales = "free_y") +
+  scale_shape_manual(values = c(16, 17, 15)) +
+  labs(
+    x = "Year",
+    y = "Visits",
+    color = "Treatment",
+    shape = "Treatment",
+    title = "Bombus Visit Rates by Treatment and Year"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold", size = 10),
+    legend.position = "right",
+    panel.spacing = unit(0.8, "lines"))
+
+```
+
+## visits by fly
+```{r}
+fly.visits <- all.years.vrate %>%
+  dplyr::filter(insect_class == "fly")
+
+fit.fly.year.treat.glmm <- glmmTMB(
+  visits ~ plant*year*treatment + flower_number + (1 | transectplot),
+  ziformula = ~ plant*year*treatment + flower_number,
+  family = nbinom2(),
+  data = fly.visits
+)
+AIC(fit.fly.year.treat.glmm)
+summary(fit.fly.year.treat.glmm)
+car::Anova(fit.fly.year.treat.glmm, type = "III")
+
+#Likelihood test:
+fit.fly.dropinteraction <- glmmTMB(
+  visits ~ plant + year + treatment + flower_number + (1 | transectplot),
+  ziformula = ~ plant + year + treatment + flower_number,
+  family = nbinom2(),
+  data = fly.visits
+)
+
+anova(fit.fly.year.treat.glmm, fit.fly.dropinteraction)
+
+#fly emmeans
+fly.treat.diff.emms <- emmeans(fit.fly.year.treat.glmm,
+                               pairwise ~ treatment | plant,
+                               type = "response")
+fly.treat.diff.emms
+
+fly.year.diff.emms <- emmeans(fit.fly.year.treat.glmm,
+                              pairwise ~ year | plant,
+                              type = "response")
+fly.year.diff.emms
+
+
+fly.year.treat.emms <- emmeans(fit.fly.year.treat.glmm,
+                               ~ year*treatment | plant)
+
+```
+
+## visits by sol bee
+
+```{r}
+
+solbee.visits <- all.years.vrate %>%
+  dplyr::filter(insect_class == "sol_bee")
+
+fit.solbee.year.treat.glmm <- glmmTMB(
+  visits ~ plant*year*treatment + flower_number + (1 | transectplot),
+  ziformula = ~ plant*year*treatment + flower_number,
+  family = nbinom2(),
+  data = solbee.visits
+)
+AIC(fit.solbee.year.treat.glmm)
+summary(fit.solbee.year.treat.glmm)
+car::Anova(fit.solbee.year.treat.glmm, type = "III")
+
+#liklihood test
+
+fit.solbee.dropinteraction <- glmmTMB(
+  visits ~ plant + year + treatment + flower_number + (1 | transectplot),
+  ziformula = ~ plant + year + treatment + flower_number,
+  family = nbinom2(),
+  data = solbee.visits
+)
+
+anova(fit.solbee.year.treat.glmm, fit.solbee.dropinteraction)
+
+
+#emmeans
+solbee.treat.diff.emms <- emmeans(fit.solbee.year.treat.glmm,
+                                  pairwise ~ treatment | plant,
+                                  type = "response")
+solbee.treat.diff.emms
+
+solbee.year.diff.emms <- emmeans(fit.solbee.year.treat.glmm,
+                                 pairwise ~ year | plant,
+                                 type = "response")
+
+solbee.year.diff.emms
+
+solbee.year.treat.emms  <- emmeans(fit.solbee.year.treat.glmm, ~ plant * year * treatment, type = "response")
+pairs(solbee.year.treat.emms, by = c("year", "treatment"), adjust = "bonferroni")
+
+
+#plot
+ggplot(solbee.visits, aes(x = factor(year), y = visits, 
+                           color = treatment)) +
+  geom_jitter(size = 2, alpha = 0.6, 
+              position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.5)) +
+  
+  facet_wrap(~ plant, scales = "free_y") +
+ 
+  labs(
+    x = "Year",
+    y = "Visits",
+    color = "Treatment",
+    
+    title = "Solitary bee Visit Rates by Treatment and Year"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold", size = 10),
+    legend.position = "right",
+    panel.spacing = unit(0.8, "lines"))
+
+```
+
+## visits by lep
+Lepidoptera data are too sparse for a count model. Must convert the response to presence / absence. This models probability of Lepidoptera visitation rather than visit counts.
+
+report result as: The probability of Lepidoptera visitation was modeled using a binomial GLMM due to extremely low visitation frequencies.
+```{r}
+#data for count model:
+# lep.visits <- all.years.vrate %>%
+#   dplyr::filter(insect_class == "lepidoptera")
+
+#data for p/a model: 
+lep.visits <- lep.visits %>%
+  mutate(presence = ifelse(visits > 0, 1, 0))
+
+#97% of visits = 0 
+lep.visits %>%
+  summarise(
+    total_rows = n(),
+    total_visits = sum(visits),
+    zeros = sum(visits == 0),
+    percent_zero = mean(visits == 0))
+
+lep.visits %>%
+  group_by(plant, year, treatment) %>%
+  summarise(total_visits = sum(visits), n = n())
+
+fit.lep.presence.glmm <- glmmTMB(
+  presence ~ plant + year + treatment +
+             plant:treatment + year:treatment +
+             flower_number +
+             (1 | transectplot),
+  family = binomial(),
+  data = lep.visits)
+
+AIC(fit.lep.presence.glmm)
+summary(fit.lep.presence.glmm)
+Anova(fit.lep.presence.glmm)
+
+
+
+#emmeans
+lep.treat.em <- emmeans(fit.lep.presence.glmm, pairwise ~ treatment | plant, type = "response")
+
+lep.year.em <- emmeans(fit.lep.presence.glmm, pairwise ~ year | plant, type = "response")
+
+#plot 
+
+# Summarize data: proportion of presence per plant × year × treatment
+lep.summary <- lep.visits %>%
+  group_by(plant, year, treatment) %>%
+  summarise(
+    n_obs = n(),
+    n_present = sum(presence),
+    prop_present = n_present / n_obs
+  )
+
+# Plot: proportion of visits
+ggplot(lep.summary, aes(x = factor(year), y = prop_present, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.7)) +
+  facet_wrap(~ plant, scales = "free_y") +
+  labs(
+    x = "Year",
+    y = "Proportion of observations with Lepidoptera",
+    fill = "Treatment",
+    title = ""
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 0, hjust = 0.5)
+  )
+```
+
+
+##year only model
+```{r}
+#lmer
+all.years.vrate.lmer <- all.years.vrate %>% 
+          group_by(plant) %>%
+          nest() %>%
+          mutate(model = map(data, ~ lmer(visitsperflowerperhr ~ factor(year) + 
+                          (1|calendar_week) +(1|transect/transectplot), data = .x)),
+          anova_table = map(model, ~ tidy(anova(.x)))) %>%  # convert ANOVA to tibble
+        select(plant, anova_table) %>%
+        unnest(anova_table) %>%
+        mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+  
+#glmmTMB with poisson distribution
+
+#library(glmmTMB)
+
+#glmmTMB with flower number in zi formula
+#Zero-inflated negative binomial mixed model with plant-specific dispersion:
+fit_zipfull <- glmmTMB(visits ~ plant*year + flower_number + (1 | transect), 
+                ziformula = ~plant*year + flower_number,
+            #need flower number in ziformula bc flower abundance is structurally important for zero probability
+                family = nbinom2(), 
+                data = all.years.vrate)
+
+AIC(fit_zipfull)
+
+summary(fit_zipfull)
+
+
+#DON"T NEED TO USE:
+#this was used to figure out model structure with initial lowest AIC value
+#glmmTMB without flower number in zi formula
+#In fit_zip, only plant and year influence the probability of getting zero visits.
+
+# fit_zip <- glmmTMB(visits ~ plant*year + flower_number + (1|transect),
+#               ziformula = ~plant*year + flower_number, 
+#               family = poisson, 
+#               data = all.years.vrate)
+# 
+# summary(fit_zip)
+
+#find model with lowest AIC:
+#AIC(fit_zipfull, fit_zip)
+
+fit_zipdropinteraction <- glmmTMB(visits ~ year + plant + flower_number + (1|transect), 
+                            ziformula = ~ year + plant + flower_number, 
+                            dispformula = ~plant, 
+                            family = nbinom2, 
+                            data = all.years.vrate)
+
+anova(fit_zipfull, fit_zipdropinteraction) #will do a likelihood ratio test of the effect of the interaction.
+
+
+```
+
+##2025 treatment model
+```{r}
+#2025 visitation rate treatment glmmTMB model:
+
+#glmmTMB with flower number in zi formula
+fit_zipfull_treatment_25 <- glmmTMB(visits ~ plant*treatment + flower_number + (1|transect), 
+                ziformula = ~plant*treatment + flower_number,
+                family = nbinom2, 
+                dispformula = ~plant,
+                data = all.years.vrate %>% filter(year==2025))
+AIC(fit_zipfull_treatment_25)
+
+summary(fit_zipfull_treatment_25)
+
+
+#DON"T NEED: 
+#glmmTMB 
+#In fit_zip, only plant and year influence the probability of getting zero visits.
+# 
+# fit_zip_treatment_25 <- glmmTMB(visits ~ plant*treatment + flower_number + (1|transect),
+#               ziformula = ~plant*treatment, 
+#               family = poisson, 
+#               data = all.years.vrate %>% filter(year==2025))
+
+#find model with lowest AIC:
+#AIC(fit_zipfull_treatment_25, fit_zip_treatment_25)
+
+#Model with no interaction
+fit_zipdropinteraction_treatment_25 <- glmmTMB(visits ~ treatment + plant + flower_number + (1|transect), 
+                            ziformula = ~plant + treatment + flower_number, 
+                            family = nbinom2, 
+                            dispformula = ~plant,
+                            data = all.years.vrate %>% filter(year==2025))
+AIC(fit_zipdropinteraction_treatment_25)
+
+anova(fit_zipfull_treatment_25, fit_zipdropinteraction_treatment_25)
+
+```
+
+##2024 treatment model
+```{r}
+#2024 visitation rate treatment glmmTMB model:
+
+#glmmTMB with flower number in zi formula
+fit_zipfull_treatment_24 <- glmmTMB(visits ~ plant*treatment + flower_number + (1|transect), 
+                ziformula = ~plant*treatment + flower_number,
+                family = nbinom2, 
+                dispformula = ~plant, 
+                data = all.years.vrate %>% filter(year==2024))
+AIC(fit_zipfull_treatment_24)
+summary(fit_zipfull_treatment_24)
+
+
+#DON"T NEED:
+#glmmTMB 
+#In fit_zip, only plant and year influence the probability of getting zero visits.
+# 
+# fit_zip_treatment_24 <- glmmTMB(visits ~ plant*treatment + flower_number + (1|transect),
+#               ziformula = ~plant*treatment, 
+#               family = poisson, 
+#               data = all.years.vrate %>% filter(year==2024))
+
+#find model with lowest AIC:
+#AIC(fit_zipfull_treatment_24, fit_zip_treatment_24)
+
+fit_zipdropinteraction_treatment_24 <- glmmTMB(visits ~ treatment + plant + flower_number + (1|transect), 
+                            ziformula = ~ treatment + plant + flower_number, 
+                            family = nbinom2, 
+                            dispformula = ~plant, 
+                            data = all.years.vrate %>% filter(year==2024))
+
+anova(fit_zipfull_treatment_24, fit_zipdropinteraction_treatment_24)
+
+#Model sample size
+nobs(fit_zipfull_treatment_24) #returns the number of observations actually used after missing data were dropped
+
+```
+##vrate n
+Sample size of number of observed pollinator interactions in 2024 vs 2025 for each plant species
+
+One row = one sampling unit (e.g., one plot × date × plant individual). Therefore n is the number of unique rows included in the analysis. For vrate, one row is one interaction event for plant x insect.
+```{r}
+#Sample size per plant species per year
+#n = number of observations
+n.vrate.years <- all.years.vrate %>%
+  group_by(plant, year) %>%
+  summarise(n = n())
+
+#Sample size per plant species & year by treatment
+n.vrate.treat <- all.years.vrate %>%
+  group_by(plant, year, treatment) %>%
+  summarise(n = n(), .groups = "drop")
+
+```
+
+
+#plotting vrate
+```{r}
+
+library(glmmTMB)
+library(ggeffects)
+library(emmeans)
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+plot_predicted_visitation <- function(model, year_label) {
+
+  preds <- ggpredict(
+    model,
+    terms = c("flower_number" ,"plant", "treatment"),
+    type = "fixed",
+    bias_correction = TRUE
+  )
+
+  ggplot(preds, aes(x = x, y = predicted, color = group)) + #x=flower number
+    geom_point(position = position_dodge(width = 0.3), size = 3) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                  width = 0.2,
+                  position = position_dodge(width = 0.3)) +
+    labs(
+      title = paste("Predicted pollinator visitation —", year_label),
+      x = "Flower Number",
+      y = "Predicted visitation rate",
+      color = "Treatment"
+    ) +
+    theme_classic()
+}
+
+#Predicted visitation panels (2024 and 2025)
+predicted_visitation_2024_plot <- plot_predicted_visitation(
+  fit_zipfull_treatment_24, "2024"
+)
+
+predicted_visitation_2025_plot <- plot_predicted_visitation(
+  fit_zipfull_treatment_25, "2025"
+)
+
+predicted_visitation_by_flower_abundance_panel <- 
+  predicted_visitation_2024_plot + predicted_visitation_2025_plot
+
+```
+
+#glmm by insect
+
+```{r}
+
+vrate.yearxtreat.visits.by.group <- all.years.vrate %>% 
+                mutate(plant_insect = paste0(plant, insect_class)) %>% 
+                # group by year, plant, treatment, and pollinator group
+                group_by(year, plant, plant_insect, treatment, insect_class, transect, transectplot, flower_number) %>%   
+                summarize(
+                  # total visits for that group
+                  visits_by_insect_group = sum(visits, na.rm = TRUE),  
+                  n_observations = n(), # number of observations
+                  .groups = "drop")
+
+
+#glmm for visits by insect group (???)
+visitsbyinsects_zipfull <- glmmTMB(visits_by_insect_group ~ plant*year + flower_number + (1 | transect), 
+                ziformula = ~plant*year + flower_number,
+            #need flower number in ziformula bc flower abundance is structurally important for zero probability
+                family = nbinom2(), 
+                data = vrate.yearxtreat.visits.by.group)
+
+AIC(visitsbyinsects_zipfull)
+
+summary(visitsbyinsects_zipfull)
+
+
+
+
+#glmm for visits per hour (not total visits)
+visitswithinsectinmodel_zipfull <- glmmTMB(visits ~ insect_class*year*treatment + flower_number + (1 | transect), 
+                ziformula = ~insect_class*year + flower_number,
+            #need flower number in ziformula bc flower abundance is structurally important for zero probability
+                family = nbinom2(), 
+                data = all.years.vrate)
+
+AIC(visitswithinsectinmodel_zipfull)
+
+summary(visitswithinsectinmodel_zipfull)
+
+
+
+#glmm for visits per hour (not total visits)
+visitsperhr_zipfull <- glmmTMB(visits.per.hr ~ plant*year*treatment + flower_number + (1 | transect), 
+                ziformula = ~plant*year + flower_number,
+            #need flower number in ziformula bc flower abundance is structurally important for zero probability
+                family = nbinom2(), 
+                data = all.years.vrate)
+
+AIC(visitsperhr_zipfull)
+
+summary(visitsperhr_zipfull)
+
+
+
+```
+
+
+
+#Treatment Emmeans for visitation by year (24 v 25)
+
+```{r}
+#Extract emmeans from each model
+# library(emmeans)
+# library(dplyr)
+# library(ggplot2)
+# 
+# emm.2024.visits.treat <- emmeans(
+#   fit_zipfull_treatment_24,
+#   ~ plant * treatment,
+#   type = "response" #response is visits
+# ) %>%
+#   as.data.frame() %>%
+#   mutate(year = "2024")
+# 
+# emm.2025.visits.treat <- emmeans(
+#   fit_zipfull_treatment_25,
+#   ~ plant * treatment,
+#   type = "response" #response is visits
+# ) %>%
+#   as.data.frame() %>%
+#   mutate(year = "2025")
+# 
+# emm.combined.visits.treat <- bind_rows(emm.2024.visits.treat, emm.2025.visits.treat )
+# 
+# 
+# # Function to calculate percent change between two years
+# year_calculate_percent_change <- function(emm_data, value_col = "response") {
+#   # Ensure year is numeric
+#   emm_data <- emm_data %>% mutate(year = as.numeric(year))
+#   
+#   # Separate 2024 and 2025
+#   data_2024 <- emm_data %>% filter(year == 2024) %>% select(plant, treatment, !!sym(value_col))
+#   data_2025 <- emm_data %>% filter(year == 2025) %>% select(plant, treatment, !!sym(value_col))
+#   
+#   # Join the two years
+#   combined <- data_2024 %>%
+#     left_join(data_2025, by = c("plant", "treatment"), suffix = c("_2024", "_2025"))
+#   
+#   # Calculate percent change
+#   combined <- combined %>%
+#     mutate(percent_change = 100 * ((!!sym(paste0(value_col, "_2025")) - !!sym(paste0(value_col, "_2024"))) / !!sym(paste0(value_col, "_2024"))))
+#   
+#   return(combined)
+# }
+# 
+# # Example usage for visitation emmeans
+# year_percent_change_visitation <- year_calculate_percent_change(emm.combined.treat, value_col = "response")
+# 
+# #TODO: doesn't work bc need to do emmeans for flower number...
+# # Percent change flower_number emmeans
+# year_percent_change_flower <- year_calculate_percent_change(emm.combined.treat, value_col = "flower_number")
+# 
+# 
+# ####################################################
+# 
+# #plot raw data & emmeans
+# 
+# library(ggplot2)
+# 
+# ggplot(all.years.vrate, aes(x = factor(year), y = visits, color = treatment)) +
+#   geom_boxplot(outlier.shape = NA, alpha = 0.5, position = position_dodge(width = 0.75)) +
+#   geom_jitter(width = 0.1, alpha = 0.3) +  # raw points overlaid
+#   # geom_point(
+#   #   data = emm.combined.treat,
+#   #   aes(x = factor(year), y = response, color = treatment),
+#   #   position = position_dodge(width = 0.75),
+#   #   size = 3,
+#   #   inherit.aes = FALSE
+#   # ) +
+#   geom_errorbar(
+#     data = emm.combined.treat,
+#     aes(x = factor(year), ymin = asymp.LCL, ymax = asymp.UCL, color = treatment),
+#     width = 0.2,
+#     position = position_dodge(width = 0.75),
+#     inherit.aes = FALSE
+#   ) +
+#   facet_wrap(~plant) +
+#   theme_classic() +
+#   labs(x = "Year", y = "Pollinator visitation", color = "Treatment")
+# 
+# # Violin plot with raw data and emmeans
+# violin_visitation_plot <- ggplot(all.years.vrate, aes(x = factor(year), y = visits, color = treatment)) +
+#   
+#   # Violin to show distribution per year/treatment
+#   geom_violin(alpha = 0.3, position = position_dodge(width = 0.8)) +
+#   
+#   # Raw data points overlaid with jitter + dodge
+#   # geom_jitter(
+#   #   position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8),
+#   #   alpha = 0.3
+#   # ) +
+#   
+#   # Add emmeans points
+#   # geom_point(
+#   #   data = emm.combined.treat,
+#   #   aes(x = factor(year), y = response, color = treatment),
+#   #   size = 3,
+#   #   position = position_dodge(width = 0.8),
+#   #   inherit.aes = FALSE
+#   # ) +
+#   
+#   # Add emmeans confidence intervals
+#   geom_errorbar(
+#     data = emm.combined.treat,
+#     aes(x = factor(year), ymin = asymp.LCL, ymax = asymp.UCL, color = treatment),
+#     width = 0.2,
+#     position = position_dodge(width = 0.8),
+#     inherit.aes = FALSE
+#   ) +
+#   
+#   # Facet by plant species
+#   facet_wrap(~plant, scales ="free_y") +
+#   
+#   theme_bw() +
+#   labs(
+#     x = "Year",
+#     y = "Pollinator visitation (visits)",
+#     color = "Treatment"
+#   )
+# 
+# violin_visitation_plot
+
+```
+
+
+#Raw data with model predictions overlay (both years)
+```{r}
+
+# predictions_24 <- ggpredict(fit_zipfull_treatment_24,
+#                            terms = c("flower_number [all]", "plant", "treatment"))
+# predictions_24$year <- "2024"
+# 
+# predictions_25 <- ggpredict(fit_zipfull_treatment_25,
+#                            terms = c("flower_number [all]", "plant", "treatment"))
+# predictions_25$year <- "2025"
+# 
+# prediction_data_combined <- bind_rows(predictions_24, predictions_25)
+# 
+# raw_data_with_model_predictions_plot <- ggplot(
+#   all.years.vrate,
+#   aes(flower_number, visits, color = plant)
+# ) +
+#   geom_point(
+#     alpha = 0.4,
+#     position = position_jitter(width = 0.1, height = 0)
+#   ) +
+#   geom_line(
+#     data = prediction_data_combined,
+#     aes(
+#       x = x,
+#       y = predicted,
+#       color = group,
+#       linetype = facet
+#     ),
+#     linewidth = 1,
+#     inherit.aes = FALSE
+#   ) +
+#   geom_ribbon(
+#     data = prediction_data_combined,
+#     aes(
+#       x = x,
+#       ymin = conf.low,
+#       ymax = conf.high,
+#       fill = group
+#     ),
+#     alpha = 0.15,
+#     color = NA,
+#     inherit.aes = FALSE
+#   ) +
+#   facet_wrap(~year) +
+#   theme_classic() +
+#   labs(
+#     x = "Flower number",
+#     y = "Observed visitation",
+#     color = "Plant species",
+#     fill = "Plant species",
+#     linetype = "Treatment"
+#   )
+# 
+# raw_data_with_model_predictions_plot
+
+```
+
+#Predicted model - Estimated marginal means (species × treatment)
+```{r}
+
+# plot_emmeans_species_treatment <- function(model, year_label) {
+#   
+#   preds <- ggeffects::ggpredict(
+#     model,
+#     terms = c("plant", "treatment"),
+#     bias_correction = TRUE
+#   )
+#   
+#   p <- ggplot(preds, aes(x = x, y = predicted, color = group)) +
+#     geom_point(position = position_dodge(width = 0.3), size = 3) +
+#     geom_errorbar(
+#       aes(ymin = conf.low, ymax = conf.high),
+#       position = position_dodge(width = 0.3),
+#       width = 0.2
+#     ) +
+#     theme_classic() +
+#     labs(
+#       title = paste("Estimated visitation:", year_label),
+#       x = "Plant species",
+#       y = "Predicted visitation",
+#       color = "Treatment"
+#     )
+#   
+#   return(p)
+# }
+# 
+# emmeans_plot_2024 <- plot_emmeans_species_treatment(fit_zipfull_treatment_24, "2024")
+# emmeans_plot_2024
+# 
+# emmeans_plot_2025 <- plot_emmeans_species_treatment(fit_zipfull_treatment_25, "2025")
+# emmeans_plot_2025
+
+```
+
+
+#difference in observed insect visits (relative amount of visits in each year)
+
+```{r}
+#2024 relative amounts of observed insect visits
+relative.insects.24 <- vrate.24.complete %>%   count(insect_class) %>%
+  mutate(relative_proportion = n / sum(n))
+
+#2025
+relative.insects.25 <- vrate.25.complete %>%   count(insect_class) %>%
+  mutate(relative_proportion = n / sum(n))
+
+#NOTE: proportion of visits per insect_class is not different between years. 
+
+```
+
+#relative insect visits per plant species
+```{r}
+
+#Relative proportion of all insect visits to plant species (NOT STADARDIZED by flower number)
+#proportion of visits by an insect per year out of that year's total
+relative.global.by.year <- all.years.vrate %>% 
+  group_by(year, plant, insect_class) %>% 
+  summarise(total_visits = sum(visits), .groups = "drop") %>% 
+  group_by(year) %>% 
+  mutate(relative_proportion = round(total_visits / sum(total_visits), 3)) %>% 
+  ungroup()
+
+ggplot(relative.global.by.year,
+       aes(x = factor(year),
+           y = relative_proportion,
+           fill = insect_class)) +
+  geom_col() +
+  #scale_fill_manual(values = palette_gradient) +
+  facet_wrap(~ plant) +
+  labs(
+    x = "Year",
+    y = "Relative proportion of all visits",
+    fill = "Insect class"
+  ) +
+  theme_bw()
+
+#Standardize relative proportion of visits to plants by flower number
+#Standardize within plant first, then global to remove plant abundance effects but still compare insects
+relative.by.plant.flower <- all.years.vrate %>% 
+  group_by(year, plant, insect_class) %>% 
+  summarise(
+    total_visits = sum(visits),
+    flowers = mean(flower_number),
+    .groups = "drop"
+  ) %>% 
+  mutate(visits_per_flower = total_visits / flowers) %>% 
+  group_by(year, plant) %>% 
+  mutate(relative_within_plant = visits_per_flower / sum(visits_per_flower)) %>% 
+  ungroup()
+
+#DON'T USE! only for visualization purposes - use relative.global.plant.flower.by.year below
+ggplot(relative.by.plant.flower,
+       aes(x = factor(year),
+           y = relative_within_plant,
+           fill = insect_class)) +
+  geom_col() +
+  facet_wrap(~ plant) +
+  labs(
+    x = "Year",
+    y = "Relative visits per flower",
+    fill = "Insect class"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+#USE THIS: 
+#For a single year, what fraction of all flower-standardized visits went to each plant × insect combination, relative to the total for that year?
+#Insect visits to plants standardized by flower number
+#global proportion of insect visits to each plant species within a single year that is standardized by flower number
+##Sum the visits_per_flower across all plants for each insect class within a year.
+##Divide by the total visits_per_flower for that year to get the proportion.
+
+relative.global.plant.flower.by.year <- relative.by.plant.flower %>%
+                      group_by(year, plant, insect_class) %>% #all standardized visits per plant × insect are summed
+                      summarise(total_visits_per_flower = sum(visits_per_flower),
+                                  .groups = "drop") %>%
+                      group_by(year) %>% #the denominator is all visits per flower in that year, across all plants and insects
+                      mutate(relative_proportion = round(total_visits_per_flower / sum(total_visits_per_flower), 3)) %>%
+                      ungroup()
+
+
+ggplot(relative.global.plant.flower.by.year,
+       aes(x = factor(year),
+           y = relative_proportion,
+           fill = insect_class)) +
+  geom_col() +
+  facet_wrap(~ plant) +
+  labs(
+    x = "Year",
+    y = "Relative visits per flower",
+    fill = "Insect class"
+  ) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(
+    panel.grid.major.x = element_blank(),        # remove vertical lines
+    panel.grid.major.y = element_line(color = "gray80", linewidth = 0.3), # horizontal lines
+    panel.grid.minor = element_blank())
+
+ggplot(relative.global.plant.flower.by.year,
+       aes(x = factor(year),
+           y = relative_proportion,
+           color = insect_class,
+           group = insect_class)) +
+  geom_point(size = 2) +
+  geom_line() +
+  facet_wrap(~ plant) +
+  labs(
+    x = "Year",
+    y = "Relative visits per flower",
+    color = "Insect class"
+  ) +
+  theme_bw()
+
+
+```
+
+
+#network
+##2024
+```{r}
+
+net.2024 <- vrate.24.complete %>% 
+            group_by(plant, insect_class) %>% 
+            summarise(visits=sum(visits)) %>% 
+            drop_na(plant) %>% 
+            pivot_wider(names_from=insect_class, values_from = visits, values_fill = 0) %>%  
+            arrange(plant) %>% #orders rows (plant names) alphabetically
+            column_to_rownames("plant") %>% 
+            relocate(sort(tidyselect::peek_vars()))  #orders columns alphabetically
+
+#bipartite network plot:                          
+pp.network.24 <- plotweb(sqrt(net.2024), empty=F, text.rot=90, method="normal")
+
+#network statistics
+net.24.stats <- networklevel(net.2024) 
+
+
+
+```
+
+##2025
+```{r}
+net.2025 <- vrate.25.complete %>% 
+            group_by(plant, insect_class) %>% 
+            summarise(visits=sum(visits)) %>% 
+            drop_na(plant) %>% 
+            pivot_wider(names_from=insect_class, values_from = visits, values_fill = 0) %>%  
+            arrange(plant) %>% #orders rows (plant names) alphabetically
+            column_to_rownames("plant") %>% 
+            relocate(sort(tidyselect::peek_vars()))  #orders columns alphabetically
+
+#bipartite network plot:                          
+pp.network.25 <- plotweb(
+  sqrt(net.2025),
+  empty = FALSE,
+  text.rot = 90,
+  method = "normal",
+)
+
+#network statistics
+net.25.stats <- networklevel(net.2025) 
+```
+
+#Network rareification
+downsample networks to 1000 rows for each treatment in each year
+
+-determine smallest network size
+-rarefy within year × treatment networks
+-generate 500 replicate networks
+-convert to matrices
+-calculate network metrics
+-analyze distributions of metrics across replicates
+
+```{r}
+
+#Creates networks for each treatment in each year 
+#NOTE: creating week level networks doesn't generate enough interaction data to run networklevel() on.
+
+#Define species list
+plants <- sort(unique(all.years.vrate$plant))
+pollinators <- sort(unique(all.years.vrate$insect_class))
+
+#Rarefaction depth:
+rarefaction.depth <- all.years.vrate %>%
+  filter(year %in% c(2024, 2025),
+         treatment %in% c("control","rainout")) %>%
+  count(year, treatment)
+
+min.rows.for.rarefaction <- min(rarefaction.depth$n)
+min.rows.for.rarefaction #1349 rows
+
+#target rows need to be lower than min.rows.for.rarefaction
+target.rows <- 1000
+
+
+#Rarefaction funtion (within each network)
+#Rarefies within each year × treatment network before aggregation
+
+rarefy.network.function <- function(df, sample_size, rep_id) {
+
+  df %>%
+    filter(year %in% c(2024, 2025),
+           treatment %in% c("control","rainout")) %>%
+    
+    group_by(year, treatment) %>%
+    
+    group_modify(~{
+
+      sampled <- .x %>%
+        slice_sample(n = sample_size, replace = FALSE)
+
+      aggregated <- sampled %>%
+        group_by(plant, insect_class) %>%
+        summarise(visits = sum(visits), .groups = "drop")
+
+      full_grid <- expand_grid(
+        plant = plants,
+        insect_class = pollinators
+      )
+
+      full_grid %>%
+        left_join(aggregated,
+                  by = c("plant","insect_class")) %>%
+        mutate(
+          visits = replace_na(visits,0),
+          replicate = rep_id
+        )
+    }) %>%
+    
+    ungroup()
+}
+
+#generate rarefied networks
+# with n number of replicate networks
+#output structure: year, treatment, plant, insect_class, visits, replicate number
+
+n_reps <- 500
+
+rarefied.networks <- map_dfr(
+  1:n_reps,
+  ~rarefy.network.function(
+      df = all.years.vrate,
+      sample_size = target.rows,
+      rep_id = .x)
+)
+
+#Convert to plant × pollinator network matrices (stats)
+pp.matrix.function <- function(df){
+
+  df %>%
+    select(plant, insect_class, visits) %>%
+    pivot_wider(names_from = insect_class,
+                values_from = visits,
+                values_fill = 0) %>%
+    column_to_rownames("plant") %>%
+    as.matrix()
+}
+
+
+#Build matrix list for each network replicate
+#Each element = one network matrix
+#500 replicates × 4 networks = 2000 matrices
+
+matrices.list <- rarefied.networks %>%
+  group_by(year, treatment, replicate) %>%
+  group_split() %>%
+  map(pp.matrix.function)
+
+#Calculate network metrics (stats) using bipartite package
+
+#library(bipartite)
+
+network.metrics.all <- matrices.list %>%
+  map_df(~{
+
+    mat <- .x
+
+    mat <- mat[rowSums(mat) > 0, colSums(mat) > 0]
+
+    if(nrow(mat) < 2 | ncol(mat) < 2 | sum(mat) < 3){
+      return(tibble(
+        connectance = NA,
+        NODF = NA,
+        H2 = NA,
+        links_per_species = NA
+      ))
+    }
+
+    metrics <- networklevel(
+      mat,
+      index = c("connectance","NODF","H2","links per species")
+    )
+
+    as_tibble(as.list(metrics))
+  })
+
+#Attach metadata back to metrics
+network.ids <- rarefied.networks %>%
+  distinct(year, treatment, replicate) %>%
+  arrange(year, treatment, replicate)
+
+network.metrics.all.final <- bind_cols(network.ids, network.metrics.all) %>% 
+                              rename(links_per_species = `links per species`)
+
+#Mean network metrics per treatment:
+mean.network.matrics.per.treatment <- network.metrics.all.final %>%
+  group_by(year, treatment) %>%
+  summarise(across(connectance:links_per_species,
+            #alternative if you add more network metrics replace above line with:
+            #across(where(is.numeric) & !replicate, \(x) mean(x, na.rm = TRUE))
+           \(x) mean(x, na.rm = TRUE)),
+            .groups = "drop")
+
+```
+
+##LMM network metrics
+
+statistical comparison of network metrics across treatments and years  
+handle the replicate rarefactions to avoid pseudoreplication)
+
+500 rarefied networks per year × treatment, so each metric has a distribution of values
+
+treats replicate rarefactions as repeated measurements of the same underlying network, not independent ecological replicates.--> use mixed-effects model with fix & random effects to control for repeated measures
+
+```{r}
+
+connectance.model <- lmer(
+  connectance ~ year * treatment + (1 | replicate), #replicate does not contribute to the model boundary is singlular warning, try t-test for nonparametric analysis
+  data = network.metrics.all.final)
+
+#p-value is very small since there are many replicates, doesn't mean much.
+Anova(connectance.model, type = "III")
+
+nodf.mod <- lmer(
+  NODF ~ year * treatment + (1 | replicate),
+  data = network.metrics.all.final)
+Anova(nodf.mod, type = "III")
+
+h2.mod <- lmer(
+  H2 ~ year * treatment + (1 | replicate),
+  data = network.metrics.all.final)
+Anova(h2.mod, type = "III")
+
+links.mod <- lmer(
+  links_per_species ~ year * treatment + (1 | replicate),
+  data = network.metrics.all.final)
+Anova(links.mod, type = "III")
+
+#plot 
+#change out connectance with different metrics 
+#shows the uncertainty introduced by rarefaction
+ggplot(network.metrics.all.final,
+       aes(treatment, connectance, fill = treatment)) +
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  facet_wrap(~year)
+
+#emmeans
+library(emmeans)
+
+#treatment differences within each year
+#connectance, H2 emmeans contrasts significant for treatment in both years.  
+#Only links per species in 2024 (not 2025), nodf emmeans contrasts no significant
+emmeans(connectance.model, pairwise ~ treatment | year)
+emmeans(nodf.mod, pairwise ~ treatment | year)
+emmeans(h2.mod, pairwise ~ treatment | year)
+emmeans(links.mod, pairwise ~ treatment | year)
+
+#year differences within each treatment:
+#Summary: all metrics shows year difference P<0.001
+emmeans(connectance.model, pairwise ~ year | treatment)
+emmeans(nodf.mod, pairwise ~ year | treatment)
+emmeans(h2.mod, pairwise ~ year | treatment)
+emmeans(links.mod, pairwise ~ year | treatment)
+
+```
+
+##glmmTMB for rarefied networks
+```{r}
+
+glmm.full.downsample.net <- glmmTMB(
+  visits ~ year * treatment * plant + (1|insect_class),
+  ziformula = ~1,
+  family = nbinom2,
+  data = downsampled.network)
+
+summary(glmm.full.downsample.net)
+
+Anova(glmm.full.downsample.net, type = "III")
+
+#post-hoc comparisons using emmeans
+
+#Treatment effect within each year
+emmeans(glmm.full.downsample.net, pairwise ~ treatment | year)
+
+#Year effect within each treatment
+emmeans(glmm.full.downsample.net, pairwise ~ year | treatment)
+
+```
+
+
+###2024
+```{r}
+
+#down sampling allows you to have same number of interactions in both control and drought so you can compare the two networks more easily
+#take net.2024 and net.2025 and take random rows
+
+#number to down sample to
+#figure out number to downsample to:
+vrate.24.complete %>% count(treatment)
+vrate.25.complete %>% count(treatment)
+
+downsample.rows <- 1000 #number of rows in down sampled networks
+#down sample number based on number of interactions in 2024 control 
+
+#make mini networks 
+
+downsample.function.2024 <- function(manipulation, downsample.rows){
+                          vrate.24.complete %>%  
+                          #left_join(rainout.treatments) %>% 
+                          filter(treatment== manipulation) %>% 
+                          slice_sample(n=downsample.rows) %>% 
+                          group_by(plant, insect_class) %>% summarise(visits=sum(visits)) %>% drop_na(plant) %>% 
+                          pivot_wider(names_from=insect_class, values_from = visits, values_fill = 0) %>%  
+                          arrange(plant) %>% #orders rows (plant names) alphabetically
+                          column_to_rownames("plant") %>% 
+                          relocate(sort(tidyselect::peek_vars())) %>%  #orders columns alphabetically
+                          networklevel(index=c("connectance", "NODF", "H2", "links per species")) %>% 
+                          t() %>% data.frame()
+                        }
+
+stats.24.downsample <- tibble(permutation=rep(1:99, times=2), treatment=rep(c("control", "rainout"), each=99)) %>% 
+              mutate(stats= map(treatment, ~downsample.function.2024(.x, downsample.rows))) %>% unnest(stats)
+
+# Links per species plot (species = insect class and size)
+dnet.color.palette <- c(control="cornflowerblue", rainout="orange")
+year.color.palette <- c("2024" = "darkgreen", "2025"= "purple")
+
+
+ggplot(stats.24.downsample, aes(x=links.per.species, fill= treatment))+ geom_histogram(binwidth = 0.05) + scale_fill_manual(values=dnet.color.palette) + facet_wrap(vars(treatment), ncol = 1)
+
+ggplot(stats.24.downsample, aes(x=connectance, fill= treatment))+ geom_histogram(binwidth = 0.05) + scale_fill_manual(values=dnet.color.palette) + facet_wrap(vars(treatment), ncol = 1)
+
+
+
+#t test
+#don't use pvalue bc we are just choosing how much data to create with number of permutations
+anova(lm(links.per.species~treatment, data=stats.24.downsample))
+
+
+
+```
+
+###2025
+```{r}
+downsample.function.2025 <- function(manipulation, downsample.rows){
+                          vrate.25.complete %>%  
+                          #left_join(rainout.treatments) %>% 
+                          filter(treatment== manipulation) %>% 
+                          #randomly selects a subset of rows
+                          slice_sample(n=downsample.rows) %>% 
+                          #aggregate visits 
+                          group_by(plant, insect_class) %>%
+                          summarise(visits=sum(visits)) %>% 
+                          #removes missing plant names
+                          drop_na(plant) %>% 
+                          #convert to an interaction matrix
+                          pivot_wider(names_from=insect_class, values_from = visits, values_fill = 0) %>%  
+                          arrange(plant) %>% #orders rows (plant names) alphabetically
+                          #column_to_rownames("plant") %>% 
+                          #relocate(sort(tidyselect::peek_vars())) %>%  #orders columns alphabetically
+                          #networklevel(index=c("connectance", "NODF", "H2", "links per species")) %>% 
+                          #t() %>% data.frame()
+                          print(head(downsampled_data))  # Debugging line
+                        }
+
+    test_output <- downsample.function.2025("control", downsample.rows)
+    print(test_output)  # Check the structure and columns of the output
+
+downsample.25 <- tibble(permutation = rep(1:99, times = 2), 
+                              treatment = rep(c("control", "rainout"), each = 99)) %>% 
+  mutate(stats = map(treatment, ~downsample.function.2025(.x, downsample.rows))) %>% 
+  unnest(stats, keep_empty = TRUE) %>%  # Keep empty rows if any
+  select(plant, insect_class, visits, permutation, treatment)  # Select relevant columns
+
+#####
+#999 permutations for each treatment
+stats.25.downsample <- tibble(permutation=rep(1:99, times=2), treatment=rep(c("control", "rainout"), each=99)) %>% 
+                        mutate(stats= map(treatment, ~downsample.function.2025(.x, downsample.rows))) %>% 
+                        unnest(stats) #Expands the list column so each permutation becomes a normal row with network metrics
+
+# Links per species plot (species = insect class and size - TODO: does it? might need to double check)
+ggplot(stats.25.downsample, aes(x=links.per.species, fill= treatment))+ geom_histogram(binwidth = 0.05) + scale_fill_manual(values=dnet.color.palette) + facet_wrap(vars(treatment), ncol = 1)
+
+ggplot(stats.25.downsample, aes(x=connectance, fill= treatment))+ geom_histogram(binwidth = 0.05) + scale_fill_manual(values=dnet.color.palette) + facet_wrap(vars(treatment), ncol = 1)
+
+```
+

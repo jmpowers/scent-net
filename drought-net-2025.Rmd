@@ -53,7 +53,8 @@ library(knitr)
 
 #treatments 
 #loads in plot and transect codes paired with treatments (rainout, control)
-rainout.treatments <- read_sheet("1YiOm8el0IGCvUHm8xDRxf8U9IWiwI8uNT6KGCzZP2sY")
+rainout.treatments <- read_sheet("1YiOm8el0IGCvUHm8xDRxf8U9IWiwI8uNT6KGCzZP2sY") %>% 
+                  mutate(transectplot = as.character(transectplot))
 
 ```
 
@@ -61,23 +62,16 @@ rainout.treatments <- read_sheet("1YiOm8el0IGCvUHm8xDRxf8U9IWiwI8uNT6KGCzZP2sY")
 ```{r}
 
 
-#code to figure out how to randomly sample for scent - choose 1 tagged plant per plot 
+#TODO: combine 2024 and 2025; filter so no repeat tag numbers; count species per plot and number of tags per species per plot
+
+# #code to figure out how to randomly sample for scent - choose 1 tagged plant per plot 
 tagged_plants_2025 <- read_sheet("1xWH7fVRm352wHamgUgpa1hkvj_DPWLRnzoZ9cCY6gpk")
 
 tagged_plants_2024 <- read_sheet("1CQpUDOA6vYTmdWZ6qwkOehrOVDI3ZZbw2jYZquq4IwU", sheet = "Sheet1")
 
-all_tagged_plants <- tagged_plants_2024 %>% left_join(tagged_plants_2025) 
+all_tagged_plants <- tagged_plants_2024 %>% full_join(tagged_plants_2025, by = c("date"))
 
-#RANDOM PLANT Selection for scent sampling -
-# Randomly select 1 plant per species per plot
-random_tags <- tagged_plants %>%
-  filter(plant=="delphinium", date != "2025-06-03") %>% 
-  group_by(transect_plot, plant) %>%
-  slice_sample(n = 1) %>%
-  ungroup() %>%
-  select(tag, transect_plot, plant)
 
-write.csv(random_tags, "random_tagged_plants.csv", row.names = FALSE)
 
 ```
 
@@ -98,6 +92,7 @@ vwc.lmer.2025 <- lmer(VWC~treatment + (1|date), data = soil_moisture)
 
 anova(vwc.lmer.2025) #p=
 summary(vwc.lmer.2025)
+
 plot_soil_moisture <- ggplot(soil_moisture, aes(x=factor(date), y=VWC, color=treatment))+geom_boxplot()+ 
 
    
@@ -112,44 +107,427 @@ print(plot_soil_moisture)
 
 #ggsave(plot.total.emissions.field, file='plots-nitrogen/total_emissions_field_boxplot.jpg', width=150, height=140, units= 'mm', dpi=600)
 
+
+#install.packages("effsize")  # only need to run this once
+library(effsize)  
+soil_moisture_cohend <- cohen.d(
+  soil_moisture$VWC,
+  soil_moisture$treatment,
+  pooled = TRUE # pooled standard deviation
+)
+
+soil_moisture_cohend
+
 ```
-
-
-
-# Visitation Rate 
-
-```{r}
-visitation.rate <- read_sheet("1Fogbr6sgAxgfnCr5DWvaeCdJNHonhp_mn--mfSsvhCo") %>% 
-       mutate(week_num=factor(week_num))  
-        
-              
-```
-
 
 # Flower Number 
 
 ```{r}
 #flower counts
 #loads in flower counts for each transect for each day of pollinator observations
-visrate.flowercounts<- read_sheet("1ObUirLHnFpHzpepx_tiXLPFxXfSVSJ6s9IAa4_Kd25o", na="") %>% mutate(flower_number = as.numeric(as.character(flower_number))) %>% drop_na(flower_number)
+visrate.flowercounts.25<- read_sheet("1ObUirLHnFpHzpepx_tiXLPFxXfSVSJ6s9IAa4_Kd25o", na="")%>% mutate(flower_number = as.numeric(flower_number)) %>%  left_join(rainout.treatments) %>% 
+  #remove species with little or no data:
+  filter(!plant%in% c( "campanula", "dandelion","dandilion", "hydro", "orgrape", "or grape", "senecio", "senecio (small)", "lath", "metensia"))
 
-#CAP preparation: 
+focalspecies.2025 <- c("clay","delphinium", "umb", "flag", "pot", "congesta", "het", "helio", "galium" )
+  
+#Getting to know the data
+#give number of flowers per species in each week number
+visrate.flowercounts.25 %>%
+  count(plant, week_num_flowcounts) %>%
+  arrange(plant, week_num_flowcounts) %>% print(n=20)
+
+#fill zeros into the data
+#records what species are found in which plot
+#Makes sure species absent from a plot are never zero-filled
+species.present.by.plot.df <- visrate.flowercounts.25 %>%
+  distinct(plant, treatment, transect, plot, transectplot) %>%
+  group_by(plant, treatment, transect, plot, transectplot) %>%
+  summarise(present = TRUE, .groups = "drop")
+
+#Create the full week × plot × species grid
+datexweek <- visrate.flowercounts.25 %>% distinct(date, week_num_flowcounts)
+
+phenology.structural.grid.df <- species.present.by.plot.df %>%
+  crossing(datexweek)
+
+#Fill structural zeros
+flower.number.with.zeros.df <- phenology.structural.grid.df %>% filter(plant %in% focalspecies.2025) %>% 
+  left_join(
+    visrate.flowercounts.25,
+    by = c("plant", "treatment", "transect", "plot", "transectplot" ,"date", "week_num_flowcounts")
+  ) %>%
+  mutate(
+    flower_number = replace_na(flower_number, 0)) %>% 
+  mutate(week_num_flowcounts = as.numeric(week_num_flowcounts)) %>% 
+  select(-scribe, -notes)
+
+
+#plot flower number:
+
+#Mean flower number in rainout vs control for each plant species
+#(not used for anything but interesting to see raw means)
+flower.number.means.2025 <- visrate.flowercounts.25 %>% 
+            group_by(treatment, plant) %>% 
+            summarise( mean.flower.number = mean(flower_number))
+        
+
+plot.flower.num.2025 <- 
+  visrate.flowercounts.25 %>% filter(plant %in% focalspecies.2025) %>% 
+  ggplot(aes(
+    x = str_to_title(plant),
+    y = flower_number,
+    color = treatment
+  )) +
+  geom_boxplot() +
+  labs(
+    x = "",
+    y = "Flower number",
+    color = "Treatment"
+  ) +
+  scale_color_manual(values = c("skyblue", "orange")) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.major.x = element_blank(),
+    legend.position = "bottom"
+  )
+  plot.flower.num.2025
+  
+  
+
+#-------make model with only 1 species: -----------
+congesta.flwrs <- flower.number.with.zeros.df %>%
+  filter(plant == "congesta")
+
+congesta.flwrs.lm <- lm(flower_number ~treatment*week_num_flowcounts, data = congesta.flwrs)
+anova(congesta.flwrs.lm)
+
+  library(ggplot2)
+  #plot congesta flower number 
+  ggplot(congesta.flwrs, aes(x = week_num_flowcounts, y = flower_number, color = treatment)) +
+    stat_summary(fun = mean, geom = "line") +
+    stat_summary(fun = mean, geom = "point") +
+    theme_bw()
+
+#-------- All plants flower number model ----------------
+library(purrr)
+library(broom)
+
+  
+#  “Does treatment change flowering phenology through time?”
+  flower.models.25 <- flower.number.with.zeros.df %>%  filter(plant %in% focalspecies.2025) %>% 
+    group_by(plant) %>%
+    nest() %>%
+    mutate(
+      model = map(data, ~ lm(flower_number ~ treatment + (1|week_num_flowcounts), data = .x)),
+      anova = map(model, ~ tidy(anova(.x))),
+      #emmeans = map(model, ~ tidy(emmeans(.x, specs = "treatment")))
+      ) %>%
+   unnest(anova) %>% 
+      filter(term %in% c("treatment", "week_num_flowcounts", "treatment:week_num_flowcounts")) %>%
+  mutate(sig = ifelse(p.value < 0.05, "*", ""))
+
+View(flower.models.25)
+#congesta, delphinium and heliomeris are significant
+  
+
+#....................................
+
+#glmm
+
+#library(glmmTMB)
+# flower.number.glmm <- flower.number.with.zeros.df %>% 
+#   group_by(plant) %>%
+#   filter(n() > 20) %>% 
+#   nest() %>% 
+#   mutate(
+#     model = map(data, ~ glmmTMB(
+#       flower_number ~ treatment * factor(week_num_flowcounts) + (1 | transect),
+#       family = nbinom2,
+#       data = .x
+#     ))
+#   ) %>% 
+# mutate(
+#     anova = map(model, ~ car::Anova(.x, type = 2))
+#   ) %>%  
+#   mutate(
+#     emmeans = map(model, ~ emmeans(.x, ~ treatment | factor(week_num_flowcounts)))
+#   )
+# 
+# Anova(
+#   flower.number.glmm,
+#   type = 2   # or type = 3 if you have strong reasons
+# )
+# 
+#   # flower.emmeans <- flower.models %>% dplyr::select(emmeans) %>% unnest(emmeans)
+# 
+# #emmeans:
+# vrate.flower.emmeans <- visrate.flowercounts.25 %>%
+#   group_by(plant) %>%
+#   nest() %>%
+#   mutate(
+#     model = map(data, ~ lm(flower_number ~ treatment * week_num_flowcounts, data = .x)),
+#     emmeans = map(model, ~ tidy(emmeans(.x, specs = "treatment")))
+#   ) %>%
+#   unnest(emmeans)
+
+  
+#...............................................................
+
+#CAP preparation: (why are you doing a cap? jb 1/13/26)
 #turns flowercount into wide format
-flowercount.wide <- visrate.flowercounts %>% pivot_wider(names_from = plant, values_from = flower_number, values_fill=0) %>% left_join(rainout.treatments)
-
-focalspecies <- c("clay", "delphinium","hydro", "or grape", "pansy","dandilion","scenecio","scenecio (small)", "scenecio (big)", "mertensia", "bochera" )
-flowercount.numbers <- flowercount.wide [,focalspecies]
-
-#CAP of flower number for each treatment
-cap.flowernumber <- capscale(flowercount.numbers~treatment+week_num, data = flowercount.wide)
-
-#anova on the CAP 
-anova.cap.flowernumber <- anova(cap.flowernumber, by="term")
-print(anova.cap.flowernumber)
+# flowercount.wide <- visrate.flowercounts.25 %>% pivot_wider(names_from = plant, values_from = flower_number, values_fill=0) %>% left_join(rainout.treatments)
+# 
+# #from 2024 code??
+# # focalspecies <- c("clay", "delphinium","hydro", "or grape", "pansy","dandilion","scenecio","scenecio (small)", "scenecio (big)", "mertensia", "bochera" )
+# # flowercount.numbers <- flowercount.wide [,focalspecies]
+# 
+# #CAP of flower number for each treatment (???? Nov 22, 2025)
+# cap.flowernumber <- capscale(flowercount.numbers~treatment+week_num, data = flowercount.wide)
+# 
+# #anova on the CAP 
+# anova.cap.flowernumber <- anova(cap.flowernumber, by="term")
+# print(anova.cap.flowernumber)
 #week number significant p=0.001; treatment not significant
 
 
 ```
+
+
+
+#vrate phenology
+Phenological timing was quantified using proportional flowering. Plot-level proportions were used for mixed-effects models, while species × treatment–level phenology curves were generated by summing flower counts across plots prior to proportional scaling
+
+TODO: change week_num to week_num_flowcounts
+```{r}
+#Need to run flower.number.with.zeros.df in flower number section before running this code.
+flower.number.with.zeros.df 
+
+#Plot-level seasonal totals (needed for proportional phenology)
+#Adds up flower number per species per plot
+plot.seasonal.flower.totals.df <- flower.number.with.zeros.df %>%
+  group_by(plant, treatment, transect, plot, transectplot) %>%
+  summarise(
+    total_flowers_season = sum(flower_number),
+    .groups = "drop"
+  )
+
+#Weekly proportional flowering
+plot.level.phenology.df <- flower.number.with.zeros.df %>%
+  left_join(
+    plot.seasonal.flower.totals.df,
+    by = c("plant", "treatment", "transect", "plot", "transectplot")
+  ) %>%
+  mutate(
+    prop_flowers_week = if_else(
+      total_flowers_season > 0,
+      flower_number / total_flowers_season,
+      NA_real_)) 
+#Cumulative flowering through time
+
+#to determine natural variation in abundance
+plot.level.cumulative.phenology.df <- plot.level.phenology.df %>%
+  arrange(plant, treatment, transect, plot, transectplot, week_num_flowcounts) %>%
+  group_by(plant, treatment, transect, plot, transectplot) %>%
+  mutate(
+    cumulative_prop_flowers = cumsum(prop_flowers_week)
+  ) %>%
+  ungroup()
+
+#phenological timing metrics (plot level)
+plot.level.phenology.metrics.df <- plot.level.cumulative.phenology.df %>%
+  group_by(plant, treatment, transect, plot, transectplot) %>%
+  summarise(
+    onset_week = min(week_num_flowcounts[cumulative_prop_flowers >= 0.05]),
+    peak_week  = week_num_flowcounts[which.max(prop_flowers_week)],
+    end_week   = min(week_num_flowcounts[cumulative_prop_flowers >= 0.95]),
+    duration_weeks = end_week - onset_week,
+    .groups = "drop"
+  )
+
+phenological.timing.lmer <- lmer(onset_week ~ treatment * plant + (1|transect/plot), data = plot.level.phenology.metrics.df) 
+
+anova(phenological.timing.lmer)
+
+#.......................................................
+#Mean proportional flowering across plots
+species.treatment.phenology.df <- plot.level.phenology.df %>%
+  group_by(plant, treatment, week_num_flowcounts) %>%
+  summarise(
+    mean_prop_flowers = mean(prop_flowers_week, na.rm = TRUE),
+    se_prop_flowers   = sd(prop_flowers_week, na.rm = TRUE) /
+                        sqrt(n()),
+    .groups = "drop"
+  )
+
+#How does the timing and shape of flowering differ between treatments for each species?
+mean.proportional.flowering.plot <- ggplot(
+  species.treatment.phenology.df,
+  aes(
+    x = week_num_flowcounts,
+    y = mean_prop_flowers,
+    color = treatment,
+    fill  = treatment
+  )
+) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(
+    aes(
+      ymin = mean_prop_flowers - se_prop_flowers,
+      ymax = mean_prop_flowers + se_prop_flowers
+    ),
+    alpha = 0.25,
+    color = NA
+  ) +
+  facet_wrap(~ plant, scales = "free_y") +
+  scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  labs(
+    x = "Week of season",
+    y = "Mean proportional flowering",
+    color = "Treatment",
+    fill  = "Treatment"
+  ) +
+  theme_classic() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "italic"),
+    legend.position = "top"
+  )
+
+print(mean.proportional.flowering.plot)
+
+
+species.treatment.phenology.df %>%
+  group_by(plant, treatment) %>%
+  summarise(total = sum(mean_prop_flowers))
+
+#.................................................
+
+
+#Use this for Species × treatment phenology:  
+#Flowering phenology calculated after aggregating flower counts across all plots within each species and treatment.
+
+
+#Sum flower numbers across plots within each week
+species.treatment.weekly.flowers.df <- flower.number.with.zeros.df %>%
+  group_by(plant, treatment, week_num_flowcounts) %>%
+  summarise(
+    total_flowers_week = sum(flower_number),
+    .groups = "drop"
+  )
+
+#seasonal totals per species × treatment
+species.treatment.seasonal.totals.df <- species.treatment.weekly.flowers.df %>%
+  group_by(plant, treatment) %>%
+  summarise(
+    total_flowers_season = sum(total_flowers_week),
+    .groups = "drop"
+  )
+
+#proportional flowering
+species.treatment.phenology.df <- species.treatment.weekly.flowers.df %>%
+  filter(plant %in% focalspecies.2025) %>%
+  left_join(
+    species.treatment.seasonal.totals.df,
+    by = c("plant", "treatment")
+  ) %>%
+  mutate(
+    prop_flowers_week = total_flowers_week / total_flowers_season
+  ) 
+
+# Flowering curve by species × treatment
+
+#library(scales)
+species.treatment.flowering.curve.plot <- ggplot(
+  species.treatment.phenology.df,
+  aes(
+    x = week_num_flowcounts,
+    y = prop_flowers_week,
+    color = treatment
+  )
+) +
+  geom_line(linewidth = 1.2) +                  # lines for treatment
+  #geom_point(size = 1.5) +                      # optional points at weeks
+  facet_wrap(~ plant, scales = "fixed") +      # separate panel per species
+  scale_y_continuous(
+    #labels = percent_format(accuracy = 1),
+    limits = c(0, 1)                           # 0 → auto max
+  ) +
+  scale_x_continuous(breaks = seq(0, 13, by = 2)) +
+  labs(
+    x = "Week of season",
+    y = "Proportional flowering",
+    color = "Treatment",
+    title = "Species × Treatment Flowering Phenology"
+  ) +
+  theme_classic() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "italic", size = 11),
+    legend.position = "top",
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  )
+
+# Display the plot
+species.treatment.flowering.curve.plot
+
+#.................................................
+
+#Cumulative flowering (aggregated)
+#What proportion of total seasonal flowering has occurred by week t?
+species.treatment.cumulative.phenology.df <- species.treatment.phenology.df %>%
+  arrange(plant, treatment, week_num_flowcounts) %>%
+  group_by(plant, treatment) %>%
+  mutate(
+    cumulative_mean_prop_flowers = cumsum(prop_flowers_week)
+  ) %>%
+  ungroup()
+
+#plot 
+cumulative.flowering.plot <- ggplot(
+  species.treatment.cumulative.phenology.df,
+  aes(
+    x = week_num_flowcounts,
+    y = cumulative_mean_prop_flowers,
+    color = treatment
+  )
+) +
+  geom_line(linewidth = 1) +
+  facet_wrap(~ plant) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    labels = scales::percent
+  ) +
+  labs(
+    x = "Week of season",
+    y = "Cumulative proportional flowering",
+    color = "Treatment"
+  ) +
+  theme_classic() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "italic"),
+    legend.position = "top"
+  )
+print(cumulative.flowering.plot)
+
+#.................................................
+
+#modeling
+#make an lmer for each species?
+phenology.lmer <- lmer(
+  onset_week ~ treatment + (1 | transect/plot),
+  data = plot.level.phenology.metrics.df
+)
+
+anova(phenology.lmer, by="term")
+
+```
+
 
 
 # Nectar - Delphinium 
@@ -166,7 +544,7 @@ nectar.old.flw <- read_sheet("1tcEVfHzXJY1YS1TI1_vL7zz6vYmDgV8MdyJeODz5mLM")
 #Morphology
 
 
-# Morph metadata
+## Morph metadata
 ```{r}
 
 #TODO: Inflo height in cm is returning TRUE or 1 - need to fix
@@ -203,18 +581,21 @@ flower.size.means.2025 <- morph_2025 %>%
               ~mean(.x, na.rm=TRUE))) %>% 
  #For missing values, changes NaNs to NAs
    mutate(across(
-    c(depth, length, width, average_flower_size),
+    c(depth, length, width), #TODO: add average_flower_size later (broken for now)
     ~ifelse(is.nan(.x), NA, .x)
-  )) #%>% 
+  )) #%>%
  # drop_na()
 
 print(flower.size.means.2025)
 View(flower.size.means.2025)
 
-all.morph.traits.2025 <- c("length", "width", "depth", "average_flower_size")
 
-morph.models.everything.2025 <- flower.size.means.2025 %>% filter(plant!="galium") %>%  pivot_longer(all_of(all.morph.traits.2025), names_to = "trait") %>% group_by(trait,plant) %>% nest() %>% 
-      mutate(morph.trait.lmer=map(data, ~lmer(value~treatment + (1|transect) + (1 | transect:plot), data=.x)), 
+all.morph.traits.2025 <- c("length", "width", "depth") #TODO: ADD  "average_flower_size"
+
+morph.models.everything.2025 <- flower.size.means.2025 %>% filter(plant!="galium") %>% 
+  filter(!is.na(treatment)) %>% 
+  pivot_longer(all_of(all.morph.traits.2025), names_to = "trait") %>% group_by(trait,plant) %>% nest() %>% 
+      mutate(morph.trait.lmer=map(data, ~lmer(value~treatment + (1|transect) , data=.x)),  #TODO: add (1 | transectplot) later
       morph.Anova= map(morph.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
       unnest(morph.Anova)%>%
       dplyr::select(-data) %>% #-morph.trait.lmer
@@ -236,7 +617,7 @@ kable(morph.emmeans.2025, digits=3) #spits out model into table
 
 #plot morph traits
 
-plot.morph.traits.2025 <- flower.size.means.2025 %>% 
+plot.morph.traits.2025 <- flower.size.means.2025 %>% filter(!is.na(treatment)) %>% 
     pivot_longer(all_of(all.morph.traits.2025), names_to = "trait") %>% 
     ggplot(aes(color=treatment, x=str_to_title(plant), y=value))+geom_boxplot()+
     facet_wrap(vars(trait),scales = "free_y", labeller=as_labeller(c(depth="Nectar Depth", length= "Flower Length", width="Flower Width")))+
@@ -251,7 +632,11 @@ print(plot.morph.traits.2025)
 
 ```
 
+#inflo height
+
 ```{r}
+#TODO: need to fix, made changes just so code would print but need to fix! 
+
 inflo_height_2025 <- morph_2025 %>% 
       #Adds 4mm to all mm inflo measurements   
            mutate(inflo_height_mm = ifelse(!is.na(inflo_height_add4mm_in_mm), inflo_height_add4mm_in_mm + 4, NA)) %>% 
@@ -265,17 +650,18 @@ inflo_height_2025 <- morph_2025 %>%
       inflo_height_cm_logical ~ as.numeric(inflo_height_ALL_mm_cm),
       TRUE ~ NA_real_
     )
-  ) %>% 
+  ) %>% filter(inflo_height_ALL_mm_cm != 0) %>% 
+            mutate(inflo_height_ALL_mm_cm = as.numeric(inflo_height_ALL_mm_cm))
   
   
     #combine columns with inflo height converted to cm
-          mutate(inflo_height_cm_all_final = coalesce(height_cm, inflo_height_mm_to_cm)) %>% 
-  drop_na()
+  #         mutate(inflo_height_cm_all_final = coalesce(height_cm, inflo_height_mm_to_cm)) %>% 
+  # drop_na()
 
 
 #Overall model 
 
-inflo.lmer.2025 <- lmer(inflo_height_cm_all_final ~ treatment + (1 | transect), data = inflo_height_2025)
+inflo.lmer.2025 <- lmer(inflo_height_ALL_mm_cm ~ treatment + (1 | transect), data = inflo_height_2025)
 summary(inflo.lmer.2025)
 Anova(inflo.lmer.2025, type=3)            
   
@@ -284,7 +670,7 @@ Anova(inflo.lmer.2025, type=3)
 inflo_models_by_species <- inflo_height_2025 %>%
   group_by(plant) %>%
   nest() %>%
-  mutate(model = map(data, ~ lmer(inflo_height_cm_all_final ~ treatment + (1 | transect) + (1 | transect:plot), data = .x))) %>% 
+  mutate(model = map(data, ~ lmer(inflo_height_ALL_mm_cm ~ treatment + (1 | transect) + (1 | transect:plot) +(1|tag), data = .x))) %>% 
   mutate(summary = map(model, ~ tidy(.x, effects = "fixed"))) %>%
   unnest(summary) %>%
   mutate(
@@ -299,6 +685,687 @@ inflo_models_by_species <- inflo_height_2025 %>%
 
 View(inflo_models_by_species)
 ```
+
+#.......................................
+
+# Visitation Rate 
+
+```{r}
+visitation.rate.25 <- read_sheet("1Fogbr6sgAxgfnCr5DWvaeCdJNHonhp_mn--mfSsvhCo") %>% 
+       mutate(week_num_vrate=factor(week_num_vrate))  
+        
+              
+```
+
+#Getting to know the vrate data
+```{r}
+
+#How many interactions each plant had:
+#Q: How many total insect visits did each plant receive?
+
+plant.interactions.2025 <- visitation.rate.25 %>%
+  group_by(plant) %>%
+  summarise(
+    total_visits = sum(visits, na.rm = TRUE),
+    n_records = n(), #how many observation rows involved that plant; NA = no visits for 15 min obs period
+    n_insect_classes = n_distinct(insect_class)
+  ) %>%
+  arrange(desc(total_visits))
+
+#How many visits each insect_class made
+#Q: Which insect groups are doing the visiting?
+insect.visits.2025 <- visitation.rate.25 %>%
+  group_by(insect_class) %>%
+  summarise(
+    total_visits = sum(visits, na.rm = TRUE),
+    n_records = n(),
+    n_plants_visited = n_distinct(plant)
+  ) %>%
+  arrange(desc(total_visits))
+
+#How many visits per transectplot
+transectplot.visits.2025 <- visitation.rate.25 %>%
+  group_by(transectplot) %>%
+  summarise(
+    total_visits = sum(visits, na.rm = TRUE),
+    n_records = n(),
+    n_plants = n_distinct(plant),
+    n_insect_classes = n_distinct(insect_class)
+  ) %>%
+  arrange(desc(total_visits))
+
+#visits are not normally distributed
+hist(visitation.rate$visits, breaks = 30)
+
+```
+
+#vistitation rate cleaning
+```{r}
+#TODO: Separate presence/absence vs intensity of visitation; Calculate visitation rates (per time, per flower, per plot); Build plant × insect interaction matrices; Diagnose zero inflation before GLMMs
+
+#define insect_classes
+vrate.insect.class.2025 <- visitation.rate.25 %>% 
+  mutate(
+    insect_class = if_else(
+      is.na(insect_class),
+      "no_insects",
+      insect_class
+    )
+  ) %>% 
+  distinct(insect_class)
+
+# define plants observed
+vrate.plants.2025 <- visitation.rate.25 %>%
+  distinct(plant)
+
+# define observation windows
+#raw visitation data contains multiple rows per observation window (one per insect class, per visit)
+#distinct() answers: “When and where did we observe, regardless of what we saw?”
+#extracts unique 15-minute observation windows and makes each row an observation event
+#one row per date × time × plot; no insect or plant information yet
+observation.windows.2025.df <- visitation.rate.25 %>%
+  distinct(
+    date, week_num_vrate, start, 
+    transect, plot, transectplot)
+
+# create zero-filled visitation structure
+visitation.rate.complete.2025.df <- observation.windows.2025.df %>%
+  crossing(vrate.plants.2025, vrate.insect.class.2025) %>%
+  left_join(
+    visitation.rate.25,
+    by = c(
+      "date", "week_num_vrate", "start", "end",
+      "transect", "plot", "transectplot",
+      "plant", "insect_class"
+    )
+  ) %>%
+  mutate(visits = replace_na(visits, 0)) %>% 
+  mutate(plant = if_else(is.na(plant), "no_visits", plant))
+
+#visits == 0 == TRUE → you watched and did not see that insect class
+#visits == 0 == FALSE → you did see that insect class at least once in that observation window
+visitation.rate.complete.2025.df %>%
+  count(insect_class, visits == 0)
+
+
+```
+
+```{r}
+#combine visitation rate and flower counts for each plot
+#how many total visits did each plant species get for each plot each week. 
+
+# Need to group flower number df to remove many-to-many warning later: 
+
+#filter vrate based on phenology: 
+flower.availability.week.df <- plot.level.cumulative.phenology.df %>%
+  filter(!plant%in% c( "campanula", "dandelion","dandilion", "hydro", "orgrape", "senecio", "senecio (small)")) %>% 
+  group_by(
+    date,
+    week_num_flowcounts,
+    transectplot,
+    transect,
+    plot,
+    plant
+  ) %>%
+  mutate(flowers_present = flower_number > 0) %>% 
+  filter(!is.na(plant), plant!="clay") %>% 
+  filter(!is.na(plant), plant!="bochera") %>% 
+  filter(!is.na(plant), plant!="or grape")
+
+# Aggregate total visits per plant per plot per week
+visitation.rate.by.plant.week.2025.df <- visitation.rate.complete.2025.df %>%
+  left_join(rainout.treatments, by = c("transect", "plot", "transectplot")) %>% 
+  mutate(week_num_vrate = as.numeric(as.character(week_num_vrate))) %>% 
+  filter(!is.na(insect_class), plant!="clay") %>% 
+  group_by(
+    date,
+    #week_num_vrate, #I think id be better to make a total season week count and add that
+    transect,
+    plot,
+    transectplot,
+    plant, insect_class, visits, plants_visisted
+  ) %>%
+  summarise(
+    total.visits = sum(visits),
+    .groups = "drop")
+
+#USE THIS: 
+#filters visitation rate by plant x week to only include if flower number is >0
+vrate.2025.filtered <-
+  visitation.rate.by.plant.week.2025.df %>%
+  filter(insect_class != "wasp") %>% 
+  filter(insect_class != "no_insects") %>% 
+  filter(insect_class != "beetle") %>% 
+  filter(insect_class != "moth") %>% 
+  left_join(
+    flower.availability.week.df,
+    by = c(
+      "date",
+      "transect",
+      "plot",
+      "transectplot",
+      "plant")) %>%
+  filter(flowers_present) %>% 
+   mutate(
+    # Visits per hour (for 15-min observation windows)
+    visits.per.hr = total.visits * 4,
+
+   # Visits per flower per hour: only if flower_number > 0
+    visitsperflowerperhr = if_else(
+      !is.na(flower_number) & flower_number > 0,
+      (total.visits / flower_number) * 4,
+      NA_real_)) %>% 
+  mutate(plant_insect_class = paste0(plant, insect_class))
+
+############################
+
+
+# flower.number.week.2025.df <- flower.number.with.zeros.df %>%
+#   group_by(
+#     date,
+#     week_num_flowcounts,
+#     transectplot,
+#     transect,
+#     plot,
+#     plant
+#   ) %>% filter(!is.na(plant), plant!="clay") %>% 
+#   summarise(
+#     flower_number = mean(flower_number, na.rm = TRUE),
+#     .groups = "drop"
+#   )
+# 
+# unique(flower.number.week.2025.df$plant)
+# unique(flower.number.week.2025.df$date)
+# 
+# # Aggregate total visits per plant per plot per week
+# visitation.rate.by.plant.week.2025.df <- visitation.rate.complete.2025.df %>%
+#   left_join(rainout.treatments, by = c("transect", "plot", "transectplot")) %>% 
+#   mutate(week_num_vrate = as.numeric(as.character(week_num_vrate))) %>% 
+#   filter(!is.na(insect_class), plant!="clay") %>% 
+#   group_by(
+#     date,
+#     #week_num_vrate, #I think id be better to make a total season week count and add that
+#     transect,
+#     plot,
+#     transectplot,
+#     plant, insect_class, visits, plants_visisted
+#   ) %>%
+#   summarise(
+#     total.visits = sum(visits),
+#     .groups = "drop")
+# 
+# #What plant species are in this dataframe:
+# unique(visitation.rate.by.plant.week.2025.df$plant)
+# 
+# setdiff(visitation.rate.by.plant.week.2025.df$plant, flower.number.week.2025.df$plant)
+# 
+# #No interaction data for ther following plantds:
+# setdiff( flower.number.week.2025.df$plant, visitation.rate.by.plant.week.2025.df$plant)
+# 
+# 
+# # Join flower counts
+# visitation.rate.with.flowers.2025.df <- visitation.rate.by.plant.week.2025.df %>%
+#   
+#   #add flower counts to vrate data
+#   left_join(
+#     flower.number.week.2025.df, by = c("date", "transect", "plot", "transectplot", "plant")) %>% 
+#   mutate(
+#     # Visits per hour (for 15-min observation windows)
+#     visits.per.hr = total.visits * 4,
+# 
+#    # Visits per flower per hour: only if flower_number > 0
+#     visitsperflowerperhr = if_else(
+#       !is.na(flower_number) & flower_number > 0,
+#       (total.visits / flower_number) * 4,
+#       NA_real_)) %>% 
+#       group_by(transect) %>%
+#   #adds treatment to newly added possible insect interactions
+#   mutate(
+#     treatment = first(na.omit(treatment))) %>%
+#   ungroup()  %>% 
+#   mutate(plant_insect_class = paste0(plant, insect_class))
+# 
+
+
+
+
+ggplot(visitation.rate.with.flowers.2025.df, aes(x = treatment, y = visitsperflowerperhr)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2, alpha = 0.3) +
+  scale_y_continuous(trans = "log1p") # optional log-transform for visualization
+
+#average visits for each insect x plant interaction across whole season (based on total number of interactions to that plant by x insect)
+nonzero.average.vrate.by.treatment <- vrate.2025.filtered %>% 
+              group_by(plant, insect_class, treatment) %>% 
+                        summarise(mean.vpfphr = mean(visitsperflowerperhr, na.rm = TRUE),
+                                   .groups = "drop") %>% filter(mean.vpfphr>0) %>%
+                        mutate(plant_insect_class = paste0(plant, insect_class)) %>% ungroup()
+
+#number of transects that you have both plant and pollinator data for in control and treatment 
+weekly.average.plant.insect.vrate <- vrate.2025.filtered %>% 
+                      filter(plant_insect_class%in%nonzero.average.vrate.by.treatment$plant_insect_class) %>% 
+                      #ungroup() %>% 
+  #only includes columns with plant_insect_class, treatment, week_num_flowcounts and number of transects that plant insect combination are found in (ranges 1-4 transects)
+                      count(plant_insect_class, treatment, week_num_flowcounts) 
+
+#creat column with paste0(plant_insect_week) so you can add to vrate.2025.filtered
+plant.insect.week.25 <- weekly.average.plant.insect.vrate %>% 
+  #makes treatment column into two separate columns one for control, another for rainout:                    
+                      pivot_wider(names_from = treatment, values_from = n, values_fill = 0) %>%  
+                      filter(control>0, rainout>0) %>% #filters out plant insect combinations that are not found in any of the transects (must occur in at least one transect)
+                      mutate(plant_insect_week= paste0(plant_insect_class, week_num_flowcounts)) #%>% #creates a new column with plant, insect_class and week_num pasted together
+                      pull(plant_insect_week) #only includes the column plant_insect_week so that we can add it to vrate.summary.treatment.transect
+
+
+#plot
+
+
+
+
+
+```
+
+
+#vrate analysis
+```{r}
+#anova
+
+vrate.resid.var <- vrate.2025.filtered %>%
+  group_by(plant_insect_class) %>%
+  summarise(resid_var = var(visitsperflowerperhr), .groups = "drop") %>% 
+  filter(resid_var > 0) %>%
+  pull(plant_insect_class)
+
+#creates a model for each combination of plant and insect group
+vrate.anova.model.25 <- vrate.2025.filtered %>% 
+                      filter(plant_insect_class %in% vrate.resid.var) %>% 
+                      filter(plant_insect_class!="dandilionbeetle") %>% 
+                      mutate(plant_insect_week = paste0(plant_insect_class, week_num_flowcounts)) %>% 
+                      #filter(plant_insect_week%in%plant.insect.week.25) %>% #adds visitsperflowerperhr column
+                      mutate(week_num_flowcounts=factor(week_num_flowcounts)) %>% #make week_num a factor so anova doesn't break
+                        group_by(plant_insect_class) %>%
+                        filter(n_distinct(treatment) > 1, n_distinct(week_num_flowcounts) > 1) %>%
+                        ungroup() %>%
+  
+                     # nest by plant_insect_class
+                      group_by(plant_insect_class) %>%
+                      nest() %>%
+                      mutate(model=map(data, ~ lm(visitsperflowerperhr~ treatment*week_num_flowcounts, data=.x))) %>% #makes a model for each plant species x pollinator combination
+                      mutate(summary = map(model,~ tidy(anova(.x)))) %>% #summarizes each model made in the line before, tidy makes summary into table
+                      select(plant_insect_class, summary) %>%  unnest(cols = c(summary)) #expands dataframe
+#WARNING - ignore warning message, just means there's not enough data
+#NaN means there is not enough data for the model, you can ignore warning in console this is also the reason (not enough data for some plant insect combos)
+
+View(vrate.anova.model.25)
+
+
+
+#test overall differences in visitation patterns across treatments while accounting for multivariate structure, instead of just looking at one plant × insect combination at a time.
+
+#TODO: set up cap, run cap and anova
+
+#do I want visits per flower per hour for each speices or treat. MEan vpfph for plant_insect_ class combination
+
+```
+
+# multivariate analysis on visitation rate
+```{r}
+#cap by week (6 different caps)
+#we did cap by week (instead of cap on whole summer vrate) bc you'd see week effect on whole summer vrate cap but this by week cap says is there a difference by week visitation rate. Maybe there's differences when a certain plant or pollinator is present in the network.
+
+vrate.cap.byweek.25 <- vrate.2025.filtered %>% 
+             #filter(visits.per.hr >0) %>% #filters column plant_insect_class but the list of plant x pollinator combinations with visits per flower per hr greater than 0 (which means there is data for them)
+             # aggregate visits per week x transect x treatment x plant
+              group_by(week_num_flowcounts, transect, treatment, plant_insect_class) %>%
+              summarise(visitsperflowerperhr = mean(visitsperflowerperhr), .groups = "drop") %>%          
+  
+              # pivot to wide format
+              pivot_wider(
+                names_from = plant_insect_class,
+                values_from = visitsperflowerperhr,
+                values_fill = 0) %>%
+  
+            group_by(week_num_flowcounts) %>%  
+            nest() %>% 
+            mutate(model=map(data, ~ capscale(.x[,-(1:3)] ~ treatment, data=.x))) %>%   #cap minus the first two cols which are transect and treatment 
+            mutate(test= map(model, ~tidy(anova(.x, by="term")))) %>%  unnest(cols = c(test))
+
+View(vrate.cap.byweek.25)
+anova(vrate.cap.byweek.25, by="term")
+
+```
+
+
+
+#For each pollinator group did they make different amounts of visits (to any plant) between treatments? Are there more bees in the drought treatment?
+```{r}
+
+poll.vrate.plot.25 <- ggplot(vrate.2025.filtered %>% #filter(plant_insect_class%in%plant.insect.nonzero.list$plant_insect_class) %>% 
+                          group_by(insect_class, week_num_flowcounts, treatment, transect) %>% 
+                          summarise(visitsperflowerperhr=sum(visitsperflowerperhr)), 
+                          aes(x=week_num_flowcounts, y=visitsperflowerperhr, color=treatment, group = paste0(treatment, transect))) + 
+                          facet_wrap(vars(insect_class)) + geom_point() + geom_line()+ scale_color_manual(values=dnet.color.palette) + theme_minimal() + ylab("Visits per flower per hour")+ xlab("Week Number") +  theme(strip.text.x = element_text(size = 11)) +  theme(axis.text.x=element_text(size=10), axis.title.x = element_text(size=11), axis.text.y = element_text(size=10), axis.title.y = element_text(size=12))  
+
+print(poll.vrate.plot.25)
+
+#ggsave(poll.vrate.3.plot, file='poll.vrate.3.plot.jpg', width=140, height=70, units= 'mm', dpi=600)
+
+
+#...........................................
+# poll.vrate.3.plot <- ggplot(vrate.summary.treatment.transect %>% 
+# filter(insect_class %in% c("big bumblebee", "big lepidoptera", "big solitary bee"))  %>%  
+#   mutate(insect_class = dplyr::recode(insect_class, 
+#     "big bumblebee" = "Bumblebee",
+#     "big lepidoptera" = "Lepidoptera",
+#     "big solitary bee" = "Solitary bee")) %>% 
+#   filter(plant_insect_class%in%plant.insect.nonzero.list$plant_insect_class) %>% 
+#                           group_by(insect_class, week_num, treatment, transect) %>% 
+#                           summarise(visitsperflowerperhr=sum(visitsperflowerperhr)), 
+#                           aes(x=week_num, y=visitsperflowerperhr, color=treatment, group = paste0(treatment, transect))) + 
+#                           facet_wrap(vars(insect_class)) + geom_point() + geom_line()+ scale_color_manual(values=dnet.color.palette) + theme_minimal() + ylab("Visits per flower per hour")+ xlab("Week Number") +  theme(strip.text.x = element_text(size = 13)) +  theme(axis.text.x=element_text(size=12), axis.title.x = element_text(size=11), axis.text.y = element_text(size=12), axis.title.y = element_text(size=14))  
+# 
+# print(poll.vrate.3.plot)
+# 
+# ggsave(poll.vrate.plot, file='poll.vrate.plot.jpg', width=140, height=70, units= 'mm', dpi=600)
+
+#.......................................
+#anova
+insect.class.anova.25 <- vrate.2025.filtered %>% 
+                    
+                      mutate(week_num_flowcounts=factor(week_num_flowcounts)) %>% #make week_num a factor so anova doesn't break
+                      group_by(insect_class, week_num_flowcounts, treatment, transect) %>% 
+                      summarise(visitsperflowerperhr=sum(visitsperflowerperhr)) %>% 
+                      group_by(insect_class) %>% nest() %>% 
+                      mutate(model=map(data, ~ lm(visitsperflowerperhr~ treatment*week_num_flowcounts, data=.x))) %>% #makes a model for each plant species x pollinator combination
+                      mutate(summary = map(model,~ tidy(anova(.x)))) %>% #summarizes each model made in the line before, tidy makes summary into table
+                      select(insect_class, summary) %>%  unnest(summary)
+
+View(insect.class.anova.25)
+
+```
+
+
+# For each plant species, is there a difference in pollinator visitation between treatments?
+
+```{r}
+
+ggplot(vrate.2025.filtered %>% filter(!plant%in% c( "campanula", "dandelion","dandilion", "hydro", "orgrape", "senecio", "senecio (small)")) %>% 
+                          group_by(plant, week_num_flowcounts, treatment, transect) %>% 
+                          summarise(visitsperflowerperhr=sum(visitsperflowerperhr)), 
+                          aes(x=week_num_flowcounts, y=visitsperflowerperhr, color=treatment, group = paste0(treatment, transect))) + 
+                          facet_wrap(vars(plant)) + geom_point() + geom_line()+ scale_color_manual(values=dnet.color.palette) + theme_minimal() + ylab("Visits per flower per hour")+ xlab("Week Number") +  theme(strip.text.x = element_text(size = 11)) + theme(axis.text.x=element_text(size=12))
+
+#anova
+plant.anova.25 <- vrate.2025.filtered %>% 
+                      filter(!plant%in% c("galium","sedum", "sub", "rosa", "speciosus")) %>% #these species don't have enough interaction data
+                      mutate(week_num_flowcounts=factor(week_num_flowcounts)) %>% #make week_num a factor so anova doesn't break
+                      group_by(plant, week_num_flowcounts, treatment, transect) %>% 
+                      summarise(visitsperflowerperhr=sum(visitsperflowerperhr)) %>% 
+                      group_by(plant) %>% nest() %>% 
+                      mutate(model=map(data, ~ lm(visitsperflowerperhr~ treatment*week_num_flowcounts, data=.x))) %>% #makes a model for each plant species x pollinator combination
+                      mutate(summary = map(model,~ tidy(anova(.x)))) %>% #summarizes each model made in the line before, tidy makes summary into table
+                      select(plant, summary) %>%  unnest(summary)
+
+View(plant.anova.25)
+
+```
+
+#....................
+# Compare 2024 & 2025
+
+
+read in dataframes: 
+```{r}
+
+
+
+
+
+```
+
+
+#....................
+# Transect walks visitation by insect class
+## do more insects visit control vs drought plots?
+
+```{r}
+#load metadata: 
+transect_walks <- read_sheet("1YujI3IvVgb2Z4d-srCpmBw2GzixHL3PYhDe2Wlt4eGQ", na=c("na","","NA") ) %>% 
+                   mutate(transectplot = as.character(transectplot), Transects = as.character(Transects)) %>% 
+                  left_join(rainout.treatments) %>% 
+                  filter(!is.na(Caught_time)) %>% 
+                  filter(!is.na(treatment))
+
+#Do more insects visit control vs drought plots? 
+# Summarize to counts per transect walk per week
+insects_per_transect_tw <- transect_walks %>%
+  group_by(Week, Transects,treatment) %>%
+  summarise(total_count = n(), .groups = "drop") 
+#total count is the number of insects caught in each transect in each week
+  
+View(insects_per_transect_tw)
+
+# Mixed-effects model
+# Random effect for transect ID (since each is sampled repeatedly) and week
+transect_walks_model <- lmer(total_count ~ treatment + 
+                      (1|Transects) + (1|Week),
+                    data = insects_per_transect_tw)
+summary(transect_walks_model)
+#p= 0.256
+
+# Get model-predicted means and SEs
+#emmeans.transect.walks <- emmeans(transect_walks_model, ~ treatment) %>%
+ # as.data.frame()
+
+#plot total insects per treatment: 
+# Plot: Total insects per transect walk, by treatment
+
+
+# Plot: Total insects per transect walk, by treatment
+plot.insects <- insects_per_transect_tw %>%
+  ggplot(aes(color = treatment,
+             x = str_to_title(Transects),  # Capitalize transect labels
+             y = total_count)) +
+  geom_boxplot() +
+  labs(
+    y = "Number of Insects",
+    x = "Transect Pairs",
+    color = "Treatment"
+  ) +
+  scale_color_manual(values = c("skyblue", "orange")) +  # match your color palette
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.major.x = element_blank(),
+    legend.position = "bottom",
+    strip.text.x = element_text(size = 11)
+  ) +
+  expand_limits(y = 0)
+
+plot.insects
+
+#Weekly counts
+# Summarize insects per week & treatment
+weekly_counts <- insects_per_transect_tw %>%
+  filter(!is.na(total_count), !is.na(treatment)) %>%
+  group_by(Week, treatment) %>%
+  summarise(
+    mean_count = mean(total_count),
+    se = sd(total_count) / sqrt(n()),
+    .groups = "drop"
+  ) %>% 
+    mutate(Week = as.numeric(Week))
+
+#plot by week number of insects in rainout vs control 
+# Plot by week
+ggplot(weekly_counts, aes(x = Week, y = mean_count, color = treatment, group = treatment)) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +
+  geom_errorbar(
+    aes(ymin = mean_count - se, ymax = mean_count + se),
+    width = 0.2
+  ) +
+   scale_x_continuous(
+    breaks = unique(weekly_counts$Week),
+    labels = paste0("Week ", unique(weekly_counts$Week))
+  ) +
+  scale_color_manual(values = c("control" = "skyblue", "rainout" = "orange")) +
+  labs(
+    x = "",
+    y = "Average Insects",
+    color = "Treatment"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "right"
+  )
+
+#####
+# Weekly counts (sum across all transects for that treatment/week)
+insects_per_week <- transect_walks %>%
+  filter(!is.na(Caught_time), !is.na(treatment)) %>%
+  group_by(Week, treatment) %>%
+  summarise(weekly_count = n(), .groups = "drop")
+
+
+weekly_model <- lmer(
+  weekly_count ~ treatment + (1 | Week),
+  data = insects_per_week
+)
+summary(weekly_model)
+
+
+#######
+
+# Filter for week 6
+week6_data <- insects_per_transect_tw %>% 
+  filter(Week == 6)
+
+# Poisson GLM
+week6_glm <- glm(total_count ~ treatment, data = week6_data, family = poisson)
+summary(week6_glm)
+# p = 0.00698 **
+
+# Filter for week 2
+week2_data <- insects_per_transect_tw %>% 
+  filter(Week == 2)
+
+# Poisson GLM
+week2_glm <- glm(total_count ~ treatment, data = week2_data, family = poisson)
+summary(week2_glm)
+# p = 0.00698 **
+
+##Results text: To test whether the number of insect visits differed between rainout and control treatments, we analyzed weekly insect counts per transect using generalized linear models (GLMs) with a Poisson error distribution. Each GLM included treatment as a fixed effect and total_count (number of insects per transect) as the response variable.  
+
+# Didn't do this but: Analyses were performed separately for each week to assess temporal differences in treatment effects. Model assumptions were checked by examining residual plots and overdispersion statistics.
+
+#All analyses were conducted in R (version X.X.X) using the glm() function for Poisson models and glm.nb() from the MASS package for negative binomial models.
+
+
+###################
+# Sum all weeks together
+insects_per_transect <- insects_per_transect_tw %>%
+  group_by(Transects, treatment) %>%
+  summarise(total_count_allweeks = sum(total_count), .groups = "drop")
+
+#Now total_count_allweeks is the total insects observed per transect over the whole sampling period.
+
+#This model tests if rainout vs control differs within transects, accounting for repeated sampling of the same transect.
+# GLMM with transect as random effect
+transect_glmm <- glmer(total_count ~ treatment + (1|Transects),
+                        data = insects_per_transect_tw,
+                        family = poisson)
+summary(transect_glmm)
+#p=0.0486 *
+
+#plot
+ggplot(insects_per_transect, aes(x = treatment, y = total_count_allweeks)) +
+  geom_boxplot(aes(fill = treatment), alpha = 0.5) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.8) +
+  labs(
+    x = "Treatment",
+    y = "Total insects per transect (all weeks)",
+    title = "Insect visits per transect by treatment"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+summary_plot <- insects_per_transect_tw %>%
+  group_by(treatment) %>%
+  summarise(
+    mean_count = mean(total_count),
+    se_count = sd(total_count)/sqrt(n()),
+    .groups = "drop"
+  )
+##########################
+
+#..................
+ggplot(summary_plot, aes(x = treatment, y = mean_count, fill = treatment)) +
+  geom_bar(stat = "identity", alpha = 0.5) +
+  geom_errorbar(aes(ymin = mean_count - se_count, ymax = mean_count + se_count), width = 0.2) +
+  labs(
+    x = "Treatment",
+    y = "Mean Number of Insects"
+    #title = "Average insect visits per transect by treatment"
+  ) +
+  scale_fill_manual(values = c("control" = "skyblue", "rainout" = "orange")) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+################
+ggplot(insects_per_transect, aes(x = treatment, y = total_count_allweeks, group = Transects)) +
+  geom_line(color = "gray", alpha = 0.5) +
+  geom_point(aes(color = treatment), size = 3) +
+  labs(
+    x = "Treatment",
+    y = "Total insects per transect",
+    title = "Paired transect comparison: rainout vs control"
+  ) +
+  theme_minimal()
+```
+## do specific insect classes visit drought or control more?
+
+```{r}
+#Do specific insect classes visit drought or control more?
+# 1. Count insects per class, per transect walk.
+# 2. Fit a mixed model with Transect_plot × Insect_class interaction.
+# 3. Run post-hoc tests to see which classes differ.
+
+# Count insects per class per transect walk
+counts_by_class <- transect_walks %>%
+  group_by(Week, Transects, transectplot, Insect_class, treatment) %>%
+  summarise(count = n(), .groups = "drop") %>% 
+  filter(!is.na(treatment)) %>% 
+  complete(Week, Transects, Insect_class, fill = list(count = 0)) %>% 
+    # Ensure grouping variables are factors
+  mutate(
+    Transects = as.character(Transects),
+    Week = as.character(Week),
+    transectplot = as.character(transectplot),
+    Insect_class = as.factor(Insect_class)
+  )
+View(counts_by_class)
+
+#mixed effects model 
+
+library(glmmTMB)
+# Model: effect of treatment for each insect class
+# Poisson GLMM (or try nbinom2 if overdispersed)
+model_by_class <- glmmTMB(
+  count ~ treatment * Insect_class + 
+    (1|Transects) + (1|Week),
+  family = poisson,
+  data = counts_by_class
+)
+
+summary(model_by_class)
+# no sig p-values
+```
+
+#---------------
+#REU Project
 
 
 # delphinium morphology metadata & find plant averags for morph traits
@@ -343,7 +1410,11 @@ delph.morph.models.everything.2025 <- delph.flower.size %>% pivot_longer(all_of(
       morph.Anova= map(morph.trait.lmer, ~tidy(Anova(.x, type=3)))) %>%          
       unnest(morph.Anova)%>%
       dplyr::select(-data) %>% #-morph.trait.lmer
-      mutate(significant = ifelse(p.value<0.05, "*","") ) %>% 
+    ungroup(trait) %>%   #but want to keep group by plant so might want to change 
+    mutate(
+    p.adj = p.adjust(p.value, method = "fdr"),
+    significant = ifelse(p.adj < 0.05, "*", "")
+  )  %>% 
       filter(term!="(Intercept)") %>% 
        mutate(emmeans=map(morph.trait.lmer, ~tidy(emmeans(.x, specs=c("treatment") )) %>% select(-p.value)))
 
@@ -453,6 +1524,7 @@ print(plot.seed.traits)
 seed_counts_flag <- read_sheet("1z5DuogRE8C-wbcRLjBXV9OTpDxfRxh1GF4WDKeh8w4o", sheet = "flag",  na="") %>% 
                    left_join(rainout.treatments) %>%  
                     filter(!is.na(flower_number) & !is.na(seed_number)) %>% 
+                    
                     select(species, tag,transect, plot, transectplot, flower_number, seed_number, treatment)
 
 flag.seed.traits.2025 <- c("flower_number", "seed_number")
@@ -498,6 +1570,7 @@ print(plot.flag.seed.traits)
 # seed set X flower size 
 #correlation
 
+#want seeds per flower for correlation (right now have total seed number)
 ```{r}
 
 ## Step 1: Remove any seed entries without a tag
@@ -547,6 +1620,7 @@ hist(seedxflowersize$seed_number_sqrt, main = "Histogram of Seed Number Sqrt tra
 
 #Correlation Test: 
 #(for all species - need to do one test per species)
+#need to test for average seeds per flower not seed number
 cor.test(seedxflowersize$average_flower_size, seedxflowersize$seed_number, method = "spearman")
 
 
@@ -561,9 +1635,11 @@ ggplot(seedxflowersize, aes(x = average_flower_size, y = seed_number)) +
 #Run separate model for each plant species:
 # Model for delphinium
 delph_model <- lmer(
-  seed_number ~ average_flower_size + (1|treatment) + (1 | transect:plot) + (1 | transect),
+  seed_number ~ average_flower_size + treatment + (1 | transect:plot) + (1 | transect),
   data = seedxflowersize %>% filter(species == "delphinium")
 )
+
+(1|transect/plot)
 summary(delph_model)
 
 # Model for flagellaris
@@ -619,4 +1695,23 @@ summary(seedxflower.model)
 #speciesflagellaris: difference in intercept between flagellaris and delphinium.
 #average_flower_size:speciesflagellaris: difference in slope between species.
 ```
+
+#Tag plant sample size -- wrong but idk why???
+
+```{r}
+morph_tags_samplesize <- delph.flower.size %>%
+  #filter(!is.na(length)) %>%
+  distinct(plant, tag) %>% 
+  count(plant, name = "n_tags")
+print(morph_tags_samplesize)
+
+seed_tags_samplesize <- seedxflowersize  %>%
+  #filter(!is.na(seed_number)) %>%
+  #distinct(species, tag) %>% 
+  count(species, name = "n_tags")
+
+print(seed_tags_samplesize)
+```
+
+#----------------
 

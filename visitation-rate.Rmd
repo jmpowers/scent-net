@@ -21,7 +21,7 @@ library(googlesheets4)
 library(broom)
 ```
 
-# Visitation Rate
+# metadata
 ```{r}
 #load metadata
 
@@ -46,7 +46,7 @@ count(vrate, insect_class, size)
 flowercounts<- read_sheet("1YR7lBNf5s9Drw9Ix61J8wUtKQO-XuZmXrRMhgktsc5k", sheet="2024") %>% filter(plant!="na") %>%  #2024-07-02, 4f - no flowers open wrote na
         mutate(transectplot=paste0(transect,plot)) %>%
         mutate(week_num = factor(week(date)-26)) %>% 
-  group_by(week_num, transect, plot, plant, transectplot) %>% 
+  group_by(date, week_num, transect, plot,transectplot, plant) %>% 
   filter(! (week_num== "1"& scribe =="sb")) %>% #removes sb's duplicate flower counts in week 1
   summarize(flower_number=mean(flower_number)) #takes mean of flower counts if there are two flower counts in a transect in the same week
 
@@ -97,7 +97,7 @@ vrate.complete<- vrate %>% complete(nesting(date, week_num, start, end, transect
 #TODO: there are some weeks that have poll obs but not flower counts?
 
 vrate.flowercount<- vrate.complete %>% 
-                    group_by(week_num, start, end, transect, plot, transectplot, plant, insect_class) %>% #selects columns to keep in dataframe
+                    group_by(date, week_num, start, end, transect, plot, transectplot, plant, insect_class) %>% #selects columns to keep in dataframe
                     summarise(visits=sum(visits)) %>% #sum of visits for each insect_class to each plant in each plot at a specific date & time
                     left_join(flowercounts) %>% #adds flower counts of each plot for each of these dates (and week_num)
                     drop_na(flower_number) %>% #drops NAs in flower_number, this means that for that species there were no open flowers at that time
@@ -255,7 +255,7 @@ vrate.summary.treatment <- vrate.flowercount %>% left_join(rainout.treatments) %
                         summarise(visitsperflowerperhr=mean(visitsperflowerperhr)) %>%
                         mutate(plant_insect_class = paste0(plant, insect_class)) %>% ungroup()
 #removes all entries where visitsperflowerperhr=0, all values must be greater than 0
-#the zeros were placeholders, which meant that we did not observe an interaction. We want a dataframe with only observed interactions so that we can plot it and not have a rediculous number of facets (only include facets with non-zero data)
+#the zeros were placeholders, which meant that we did not observe an interaction. We want a dataframe with only observed interactions so that we can plot it and not have a ridiculous number of facets (only include facets with non-zero data)
 plant.insect.nonzero.list <- vrate.summary.treatment %>% group_by(plant_insect_class) %>%  
                               summarise(visitsperflowerperhr = mean(visitsperflowerperhr)) %>% 
                               filter(visitsperflowerperhr>0)
@@ -548,6 +548,8 @@ downsample.function <- function(manipulation, downsample.rows){
                           t() %>% data.frame()
             
                         }
+
+
 
 stats.downsample <- tibble(permutation=rep(1:999, times=2), treatment=rep(c("control", "rainout"), each=999)) %>% 
               mutate(stats= map(treatment, ~downsample.function(.x, downsample.rows))) %>% unnest(stats)
