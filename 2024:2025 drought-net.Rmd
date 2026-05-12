@@ -30,6 +30,7 @@ library(dplyr)
 library(glmmTMB)
 
 
+
 library(bipartite)
 library(vegan)
 library(phytools)
@@ -54,11 +55,16 @@ library(knitr)
 ```
 
 #color pallate 
+#TODO: change colors!
+Rainout v control (blue v dark blue) 
+Year - grey v light grey
+Species (plants/insects) - gradients
+
 ```{r}
 
 treatment_colors <- c(
-  "control" = "#9bd2ef",
-  "rainout" = "#ce9a9b"
+  "control" = "#1A4F8A",
+  "rainout" = "#5B9BD5"
 )
 
 year_colors <- c(
@@ -212,7 +218,196 @@ rainout.treatments <- read_sheet("1YiOm8el0IGCvUHm8xDRxf8U9IWiwI8uNT6KGCzZP2sY")
                   mutate(transectplot = as.character(transectplot))
 ```
 
+#Photon Flux (light)
+
+```{r}
+photon.flux.2025 <- read_sheet("1VNzW8VLCXcpR7_OwmcSWjdd0oLS-91gnWdWPmNI6udY") %>% 
+        left_join(rainout.treatments, by = c("transect","transectplot","plot")) %>% 
+        #make column with average of the two sensors:
+        mutate(flux_avg = round(rowMeans(select(., top_sensor, bottom_sensor), na.rm = TRUE)))
+
+photon.lmer <- lmer(flux_avg ~ treatment + (1 | transectplot) + (1|transect) + (1|date), data = photon.flux.2025)
+
+summary(photon.lmer)
+Anova(photon.lmer, type = 3)
+
+#plot
+
+ggplot(photon.flux.2025, aes(x = treatment, y = flux_avg, fill = treatment)) +
+  geom_boxplot(outlier.shape = 21, outlier.size = 2, alpha = 0.8) +
+  geom_jitter(width = 0.15, size = 1.5, alpha = 0.5) +  # shows raw points too
+  labs(
+    x = "Treatment",
+    y = "Photon Flux",
+    title = ""
+  ) +
+  theme_classic() +
+  theme(legend.position = "none")
+
+# plot by transect
+#x-axis incriments wrong but data is correct
+
+ggplot(photon.flux.2025 , aes(x = transect, y = flux_avg, color = treatment, group = treatment)) +
+  geom_point(alpha = 0.6) +                            # raw measurements
+  scale_color_manual(values = treatment_colors) +
+  geom_line(stat = "summary", fun = mean, linewidth = 1) +  # mean line per treatment
+  #facet_wrap(~ year, ncol = 1, scales = "free_x") +   # top: 2024, bottom: 2025
+  labs(x = "Transect", y = "Photon Flux",
+       color = "Treatment") +
+  #scale_x_date(date_breaks = "1 month", date_labels = "%b")+
+  theme_classic() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "gray80", size = 0.3),
+    axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+#emmeans
+
+photon.emm <- emmeans(photon.lmer, ~ treatment)
+summary(photon.emm)
+
+photon.contrasts <- contrast(photon.emm, method = "pairwise", adjust = "tukey")
+summary(photon.contrasts)
+
+```
+
+
+#continuous soil moisture
+#TODO: match sensor number to color
+```{r}
+# SENSOR COLOR IDENTIFICATION - TO DO WHEN HOBOWARE IS AVAILABLE
+# ---------------------------------------------------------------
+# The cont.soil.LOW dataframe has 3 sensors (c.1, c.2, c.3) that correspond
+# to colored sensors (Red, Green, Blue) but the exact matching is unknown.
+#
+# TO IDENTIFY WHICH SENSOR IS WHICH COLOR:
+# 1. Open HOBOware on the lab computer
+# 2. Open the .hproj file for DRCHobo1_LOW_droughtnet_JanelleBohey_2025
+# 3. Look at the sensor configuration/channel assignments
+#    - Channel 1 = c.1, Channel 2 = c.2, Channel 3 = c.3
+#    - Note which color sensor was plugged into each channel
+# 4. Once identified, rename the columns in R:
+#
+#    cont.soil.LOW <- cont.soil.LOW %>%
+#      rename(VWC_red   = Water.Content..m..m...c.X,   # replace X with correct number
+#             VWC_green = Water.Content..m..m...c.X,
+#             VWC_blue  = Water.Content..m..m...c.X)
+#
+# NOTE: c.2 has negative VWC values which are physically impossible.
+#       Once color is confirmed, investigate whether that sensor was
+#       faulty, poorly seated in the soil, or needs calibration.
+```
+
+```{r}
+#load metadata
+cont.soil.metadata <- read_sheet("1dxFl-XatNYI7Z0mCsluAdmhatEYmzS31VSolvdLYjxM")
+
+#load continuous soil moisture data from text file on desktop
+#For datalogger name = LOW
+cont.soil.LOW <- read.delim("2024-2025-drought-net_files/Continuous_VWC/DRCHobo1_LOW_droughtnet_JanelleBohey_2025.txt") %>% 
+          mutate(datetime = as.POSIXct(paste(Date, Time),
+                        format = "%y-%m-%d %H:%M:%S")) %>% 
+        select(-1) %>%  #remove the first column
+  #NOTE IMPORTANT: COLORS RANDOMLY ASSIGNED TO SENSOR NUMBER (c.1, c.2, c.3). MUST look at HOBOsoftware to know what sensor corresponds to what color. 
+        rename(L_red   = Water.Content..m..m...c.1,  # control
+              L_green = Water.Content..m..m...c.2,  # rainout
+              L_blue  = Water.Content..m..m...c.3)  # rainout
+    
+#plot all low sensors
+cont.soil.LOW %>%
+  select(datetime, c1 = L_red, 
+                   c2 = L_green, 
+                   c3 = L_blue) %>%
+  pivot_longer(cols = c(c1, c2, c3), names_to = "sensor", values_to = "VWC") %>%
+  ggplot(aes(x = datetime, y = VWC, color = sensor)) +
+  geom_line() +
+  labs(x = "Date", y = "VWC (m³/m³)", title = "LOW datalogger (transects 3-5) - Soil Moisture") +
+  theme_minimal()
+
+# After renaming, pivot to long format and add treatment column
+cont.soil.LOW.long <- cont.soil.LOW %>% 
+  select(datetime, L_red, L_green, L_blue) %>%
+  pivot_longer(cols = c(L_red, L_green, L_blue),
+               names_to = "sensor_name",
+               values_to = "VWC") %>%
+  left_join(cont.soil.metadata, by=c("sensor_name")) 
+
+
+#load continuous soil moisture data from text file on desktop
+##For datalogger name = HIGH
+cont.soil.HIGH <- read.delim("2024-2025-drought-net_files/Continuous_VWC/HIGH_JanelleBohey_droughtnet_2025_10374995.txt") %>% 
+          mutate(datetime = as.POSIXct(paste(Date, Time),
+                        format = "%y-%m-%d %H:%M:%S")) %>% 
+        select(-1) %>%  #remove the first column
+  #NOTE IMPORTANT: COLORS RANDOMLY ASSIGNED TO SENSOR NUMBER (c.1, c.2, c.3). MUST look at HOBOsoftware to know what sensor corresponds to what color. 
+        rename(H_red   = Water.Content..m..m...c.1,  # control
+              H_green = Water.Content..m..m...c.2,  # rainout
+              H_blue  = Water.Content..m..m...c.3)  # rainout
+    
+#plot all high sensors
+cont.soil.HIGH %>%
+  select(datetime, c1 = H_red, 
+                   c2 = H_green, 
+                   c3 = H_blue) %>%
+  pivot_longer(cols = c(c1, c2, c3), names_to = "sensor", values_to = "VWC") %>%
+  ggplot(aes(x = datetime, y = VWC, color = sensor)) +
+  geom_line() +
+  labs(x = "Date", y = "VWC (m³/m³)", title = "HIGH datalogger (transects 6-8) - Soil Moisture") +
+  theme_minimal()
+
+# After renaming, pivot to long format and add treatment column
+cont.soil.HIGH.long <- cont.soil.HIGH %>% 
+  select(datetime, H_red, H_green, H_blue) %>%
+  pivot_longer(cols = c(H_red, H_green, H_blue),
+               names_to = "sensor_name",
+               values_to = "VWC") %>%
+  left_join(cont.soil.metadata, by=c("sensor_name")) 
+
+
+cont.soil.ALL <- bind_rows(cont.soil.LOW.long, cont.soil.HIGH.long)
+
+#see how many negative vwc measurements there are:
+sum(cont.soil.ALL$VWC < 0, na.rm = TRUE)
+
+# See which sensors are producing the negatives
+cont.soil.ALL %>%
+  filter(VWC < 0) %>%
+  count(sensor_name, treatment)
+#treat negative values as "very dry" due to rocky soil
+
+# ........... Daily Mean vwc .......................
+#find mean vwc for each day
+cont.soil.daily_means <- cont.soil.ALL %>%
+  mutate(date = as_date(datetime)) %>%
+  group_by(date, treatment) %>%
+  summarise(mean_VWC = mean(VWC, na.rm = TRUE),
+            se_VWC = sd(VWC, na.rm = TRUE) / sqrt(n()))
+
+#plot means
+ggplot(cont.soil.daily_means, aes(x = date, y = mean_VWC, color = treatment)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = mean_VWC - se_VWC,
+                  ymax = mean_VWC + se_VWC,
+                  fill = treatment), alpha = 0.2) +
+  labs(x = "Date", y = "Mean VWC",
+       title = "") +
+  theme_minimal()
+
+
+#............. lmer ......................
+cont.soil.lmer <- lmer(VWC ~ treatment + (1|datetime) + (1|transectplot), 
+              data = cont.soil.ALL)
+
+summary(cont.soil.lmer)
+
+Anova(cont.soil.lmer)
+
+```
+
+
 #soil moisture
+Hydrosense II 
 ```{r}
 vwc.2024 <- read_sheet("1pMNaVLHJ2d5SBAP25xk5DjTMnbX1yAmYyWLtiJ_bQlw", na=c("","rocky")) %>% 
                   dplyr::select(-transect_plot) %>% 
@@ -254,7 +449,7 @@ vwc.all <- bind_rows(vwc.2024, vwc.2025) %>%
                           
              
 
-vwc.all$calendar_week <- droplevels(vwc.all$calendar_week)
+#vwc.all$calendar_week <- droplevels(vwc.all$calendar_week)
 
 ```
 
@@ -262,24 +457,24 @@ vwc.all$calendar_week <- droplevels(vwc.all$calendar_week)
 #fixing calendar_ week issue: 
 # 2024 & 2025 are missing Week 28...
 #2025 also missing week 32
-
- vwc.all %>%
-     group_by(year) %>%
-     summarize(
-         unique_weeks = n_distinct(calendar_week),
-         weeks_list = paste(sort(unique(calendar_week)), collapse = ", ")
-     )
-
-sort(unique(vwc.all$date))
-
-unique(vwc.all$calendar_week[vwc.all$year == 2024])
-unique(vwc.all$calendar_week[vwc.all$year == 2025])
-
-# vwc.all %>%
-#   group_by(year, calendar_week) %>%
-#   summarize(mean_VWC = mean(VWC, na.rm = TRUE), .groups = "drop")
-
-levels(vwc.all$calendar_week)
+# 
+#  vwc.all %>%
+#      group_by(year) %>%
+#      summarize(
+#          unique_weeks = n_distinct(calendar_week),
+#          weeks_list = paste(sort(unique(calendar_week)), collapse = ", ")
+#      )
+# 
+# sort(unique(vwc.all$date))
+# 
+# unique(vwc.all$calendar_week[vwc.all$year == 2024])
+# unique(vwc.all$calendar_week[vwc.all$year == 2025])
+# 
+# # vwc.all %>%
+# #   group_by(year, calendar_week) %>%
+# #   summarize(mean_VWC = mean(VWC, na.rm = TRUE), .groups = "drop")
+# 
+# levels(vwc.all$calendar_week)
 ```
 
 
@@ -287,14 +482,14 @@ levels(vwc.all$calendar_week)
 ```{r}
 #Treatment by year models:
 vwc.lmer.2025 <- lmer(VWC~treatment + (1|date) + (1|transectplot) , data = vwc.2025)
-anova(vwc.lmer.2025) 
+Anova(vwc.lmer.2025) 
 
 vwc.lmer.2024 <- lmer(VWC~treatment + (1|date) + (1|transectplot) , data = vwc.2024)
 Anova(vwc.lmer.2024) 
 
 #Cross Year Model:
 vwc.lmer.all.years <- lmer(VWC ~ year + (1|transectplot)  , data = vwc.all)
-anova(vwc.lmer.all.years)
+Anova(vwc.lmer.all.years)
 
 
 
@@ -335,12 +530,14 @@ summary(vwc.emm)
 #EMMeans for every treatment × week combination within each year 
 vwc.emm.week <- emmeans(vwc.lmer.all.years.treatment, ~ treatment * calendar_week | year, at = list(calendar_week = cal_weeks))
 summary(vwc.emm.week)
-  
+ 
+#USE THIS: 
 #Emmeans treatment differences within each year-week
-vwc.emm.treatweek <- emmeans(vwc.lmer.all.years.treatment, ~ treatment | calendar_week, at = list(calendar_week = cal_weeks))
+vwc.emm.treatweek <- emmeans(vwc.lmer.all.years.treatment, ~ treatment | calendar_week * year, at = list(calendar_week = cal_weeks))
 summary(vwc.emm.treatweek)
 
-       
+vwc.contrasts.treatweek <- pairs(vwc.emm.treatweek)
+summary(vwc.contrasts.treatweek)   
 
 # Pairwise comparison of treatments within each year
 # tukey gives adjusted p-values 
@@ -502,11 +699,28 @@ flowercounts.2024 <- read_sheet("1YR7lBNf5s9Drw9Ix61J8wUtKQO-XuZmXrRMhgktsc5k", 
                       ungroup()
 
 
+# --- 2024: expand to all date x transectplot x focal species combinations ---
+observation.windows.flowers.24 <- flowercounts.2024 %>%
+  distinct(date, week_num, transect, plot, transectplot, treatment, year)
+
+flowercounts.2024.complete <- observation.windows.flowers.24 %>%
+  # cross with the focal species (using the RECODED names already in flowercounts.2024)
+  crossing(plant = unique(flowercounts.2024$plant)) %>%
+  left_join(
+    flowercounts.2024,
+    by = c("date", "week_num", "transect", "plot",
+           "transectplot", "treatment", "year", "plant")
+  ) %>%
+  mutate(flower_number = replace_na(flower_number, 0))
+
+
+#................. 2025 flower counts ......................
+
 flowercounts.2025 <- read_sheet("1ObUirLHnFpHzpepx_tiXLPFxXfSVSJ6s9IAa4_Kd25o", na="") %>% 
                       mutate(flower_number = as.numeric(flower_number)) %>%
                       left_join(rainout.treatments) %>% 
                       group_by(date, week_num_flowcounts, transect, plot,transectplot, plant, treatment) %>% 
-                      #summarize(flower_number=mean(flower_number)) %>% 
+                      summarize(flower_number = mean(flower_number), .groups = "drop") %>% 
                       #remove species with little or no data:
                       filter(plant%in% focalspecies.2025) %>% 
                       filter(!plant%in% "clay") %>% #remove claytonia becuase not measured in 2024
@@ -520,20 +734,110 @@ flowercounts.2025 <- read_sheet("1ObUirLHnFpHzpepx_tiXLPFxXfSVSJ6s9IAa4_Kd25o", 
                         mutate(year = 2025) %>% 
                         ungroup()
 
-setdiff( flowercounts.2025$plant, flowercounts.2024$plant)
-library(lubridate)
+# --- 2025: expand to all date x transectplot x focal species combinations ---
+observation.windows.flowers.25 <- flowercounts.2025 %>%
+  distinct(date, week_num_flowcounts, transect, plot, transectplot, treatment, year)
 
-all.flowercounts <- bind_rows(flowercounts.2024, flowercounts.2025) %>% 
-                            select(-week_num, -week_num_flowcounts) %>% 
-                            mutate(calendar_week = week(date))   #adds calendar week based on the date column
+flowercounts.2025.complete <- observation.windows.flowers.25 %>%
+  crossing(plant = unique(flowercounts.2025$plant)) %>%
+  left_join(
+    flowercounts.2025,
+    by = c("date", "week_num_flowcounts", "transect", "plot",
+           "transectplot", "treatment", "year", "plant")
+  ) %>%
+  mutate(flower_number = replace_na(flower_number, 0))
 
+#setdiff( flowercounts.2025$plant, flowercounts.2024$plant)
+
+
+# --- Combine 2024 & 2025 complete datasets---
+#library(lubridate)
+all.flowercounts <- bind_rows(flowercounts.2024.complete,
+                              flowercounts.2025.complete) %>%
+  select(-week_num, -week_num_flowcounts) %>%
+  mutate(calendar_week = week(date))
+  #adds calendar week based on the date column
+
+  unique(all.flowercounts$plant)
   
+  
+# Sanity checks: 
+  # Confirm row count = #observation windows * #focal species (per year)
+flowercounts.2024.complete %>% summarise(
+  n_obs = n(),
+  expected = n_distinct(paste(date, transectplot)) * n_distinct(plant))
 
-unique(all.flowercounts$plant)
+# Should match
+flowercounts.2025.complete %>% summarise(
+  n_obs    = n(),
+  expected = n_distinct(paste(date, transectplot)) * n_distinct(plant)
+)
+
+# How many unique plant values actually ended up in the expanded data?
+flowercounts.2025.complete %>% distinct(plant)
+
+# Confirm no NAs in flower_number
+all.flowercounts %>% summarise(n_NA = sum(is.na(flower_number)))
+
+# Sanity: zeros should now exist
+all.flowercounts %>% count(flower_number == 0, year)
 
 ```
 
-##Flower Models - treatment
+```{r}
+#2025 sanity checks:
+# 1. Duplicate is gone
+flowercounts.2025 %>%
+  count(date, transectplot, plant) %>%
+  filter(n > 1)
+# expect: 0 rows
+
+# 2. Row count matches expected (both years)
+flowercounts.2024.complete %>% summarise(
+  n_obs    = n(),
+  expected = n_distinct(paste(date, transectplot)) * n_distinct(plant)
+)
+flowercounts.2025.complete %>% summarise(
+  n_obs    = n(),
+  expected = n_distinct(paste(date, transectplot)) * n_distinct(plant)
+)
+# expect: n_obs == expected for both (2025 should now be 5448 == 5448)
+
+# 3. No NAs in flower_number
+all.flowercounts %>% summarise(n_NA = sum(is.na(flower_number)))
+# expect: 0
+
+# 4. Every date x transectplot x plant appears exactly once per year
+all.flowercounts %>%
+  count(year, date, transectplot, plant) %>%
+  filter(n > 1)
+# expect: 0 rows
+
+# 5. Every focal species shows up for every observation window
+#    (i.e., 8 plant rows for each date x transectplot)
+all.flowercounts %>%
+  count(year, date, transectplot) %>%
+  filter(n != 8)
+# expect: 0 rows
+
+# 6. Treatment is assigned for every row
+all.flowercounts %>% summarise(n_treatment_NA = sum(is.na(treatment)))
+# expect: 0
+
+# 7. Zero proportions still look ecologically reasonable
+all.flowercounts %>% count(year, is_zero = flower_number == 0) %>%
+  group_by(year) %>% mutate(pct = round(100 * n / sum(n), 1))
+# expect: similar to before (~67% 2024, ~76% 2025), just one fewer row in 2025
+
+# 8. Original non-zero observations are preserved (nothing got accidentally zeroed)
+#    Compare totals before and after expansion
+flowercounts.2025 %>% summarise(n_nonzero_orig = sum(flower_number > 0, na.rm = TRUE))
+flowercounts.2025.complete %>% summarise(n_nonzero_new = sum(flower_number > 0, na.rm = TRUE))
+# expect: equal
+```
+
+
+##Flower glmm Models - treatment*year
 ```{r}
 
 #glmmTMB for flower number
@@ -542,10 +846,12 @@ unique(all.flowercounts$plant)
 flowercounts.forglmm <- all.flowercounts %>% 
                             filter(!is.na(flower_number)) %>% #one galium has NA
                             mutate(flower_number = as.integer(flower_number)) %>% 
+                            mutate(year=as.factor(year)) %>% 
                             filter(!plant%in%"delphinium") %>% 
-                            filter(!plant%in%"galium")
-
-flower.glmm.full <- glmmTMB(flower_number ~ plant * treatment + (1|transect), 
+                            filter(!plant%in%"galium") 
+                          
+# REPORT THE FULL MODEL! 
+flower.glmm.full <- glmmTMB(flower_number ~ plant * treatment * year + (1|transectplot), 
                 #ziformula = ~plant*treatment,
                 dispformula = ~plant, #Variance differs among plant species, not much among years
                 family = nbinom2, 
@@ -555,11 +861,13 @@ AIC(flower.glmm.full)
 
 summary(flower.glmm.full)
 
+Anova(flower.glmm.full)
+
 table(flowercounts.forglmm$plant, flowercounts.forglmm$year)
 
 
 
-flowercounts.glmm.dropinteraction <- glmmTMB(flower_number ~ year + plant + (1|transect), 
+flowercounts.glmm.dropinteraction <- glmmTMB(flower_number ~  plant + treatment + year + (1|transect), 
                             #ziformula = ~ year + plant + flower_number, 
                             dispformula = ~plant, 
                             family = nbinom2, 
@@ -567,14 +875,144 @@ flowercounts.glmm.dropinteraction <- glmmTMB(flower_number ~ year + plant + (1|t
 AIC(flowercounts.glmm.dropinteraction)
 summary(flowercounts.glmm.dropinteraction)
 
+Anova(flowercounts.glmm.dropinteraction)
 
 anova(flower.glmm.full, flowercounts.glmm.dropinteraction) #will do a likelihood ratio test of the effect of the interaction.
+
+
+# Emmeans
+
+flower.emm <- emmeans(flower.glmm.full,
+                      ~ treatment * year | plant,
+                      type = "response")
+flower.emm
+
+
+#Treatment effect (rainout vs control) within each plant x year
+
+flower.treatment.contrasts <- contrast(flower.emm,
+                          method  = "pairwise",
+                          by      = c("plant", "year"),
+                          adjust  = "tukey",
+                          infer   = c(TRUE, TRUE))   # CIs + p-values
+flower.treatment.contrasts
+
+
+
+# Year effect (2024 vs 2025) within each plant x treatment
+# Tests whether differences between years differ by drought treatment
+
+flower.year.contrasts <- contrast(emmeans(flower.glmm.full,
+                                   ~ year * treatment | plant,
+                                   type = "response"),
+                           method = "pairwise",
+                           by     = c("plant", "treatment"),
+                           adjust = "tukey",
+                           infer  = c(TRUE, TRUE))
+flower.year.contrasts
+
+
+#Interaction contrast: does the treatment effect differ between years?
+flower.treatmentxyear.contrast <- contrast(emmeans(flower.glmm.full,
+                               ~ treatment * year | plant),
+                       interaction = c("pairwise", "pairwise"),
+                       adjust = "none")   # single test per plant; no family
+flower.treatmentxyear.contrast
+
+#NOTE: none significant (go to next step below)
+
+# Overall treatment effect averaged across years (per plant)
+#     since the treatment x year interaction is non-significant
+
+flower.treatment.emms <- emmeans(flower.glmm.full,
+                        ~ treatment | plant,
+                        type = "response")
+flower.treatment.emms.contrasts <- contrast(flower.treatment.emms,
+                                   method = "pairwise",
+                                   adjust = "tukey",
+                                   infer  = c(TRUE, TRUE))
+flower.treatment.emms.contrasts
+
+# Joint test of fixed effects (Type II / III F-tests)
+joint_tests(flower.glmm.full)
+joint_tests(flower.glmm.full, by = "plant") 
+
+#report joint_tests() for the main effects/interactions in-text, then use the emmeans() + contrast() output to follow up with specific pairwise comparisons (e.g., "within heliomeris in 2025, rainout reduced flower number by 43% relative to control, p = 0.003")
+
+# visualization to see model results/patterns 
+
+plot(flower.emm, by = "plant", comparisons = TRUE, type = "response") +
+  theme_bw()
+
+emmip(flower.glmm.full, treatment ~ year | plant, type = "response",
+      CIs = TRUE) +
+  labs(y = "Predicted flower number", x = "Year") +
+  theme_bw()
+
+
+```
+
+## figure - glmmer - TODO
+```{r}
+library(ggplot2)
+library(emmeans)
+library(dplyr)
+
+# Get model-predicted means with CIs on the response scale
+flower.counts.emm.df <- emmeans(flower.glmm.full,
+                  ~ treatment * year | plant,
+                  type = "response") %>%
+  as.data.frame() %>%
+  rename(predicted = response)   # rename for clarity (it's the back-transformed mean)
+
+#TODO: 
+
+#this figure doesn't make sense for looking at flower number because we care about the peak number of flowers not the average flowers over the flowering period.  
+
+#take mean of flower counts at the plot-level:
+#clears zeros that clutter figure
+flower.counts.plot.means <- flowercounts.forglmm %>%
+  group_by(plant, treatment, year, transectplot) %>%
+  summarise(mean_flowers = mean(flower_number), .groups = "drop")
+
+#plot
+fig.flower <- ggplot() +
+  geom_jitter(data = flower.counts.plot.means,
+              aes(x = year, y = mean_flowers, color = treatment),
+              position = position_jitterdodge(jitter.width = 0.15,
+                                              dodge.width = 0.6),
+              alpha = 0.5, size = 1.5) +
+  geom_errorbar(data = flower.counts.emm.df,
+                aes(x = year, ymin = asymp.LCL, ymax = asymp.UCL,
+                    color = treatment),
+                position = position_dodge(width = 0.6),
+                width = 0.15, linewidth = 0.7) +
+  geom_point(data = flower.counts.emm.df,
+             aes(x = year, y = predicted, color = treatment),
+             position = position_dodge(width = 0.6),
+             size = 3) +
+  facet_wrap(~ plant, scales = "free_y", nrow = 2) +
+  scale_color_manual(values = treatment_colors,
+                     name = "Treatment",
+                     labels = c("control" = "Control",
+                                "rainout" = "Rainout")) +
+  labs(x = "Year", y = "Mean open flowers per plot") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(),
+        strip.background = element_rect(fill = "white"),
+        strip.text = element_text(face = "italic"),
+        legend.position = "right")
+
+# Save figure
+
+#ggsave("figure_flower_number.png", fig.flower,
+#       width = 7, height = 5, units = "in", dpi = 600)
 
 
 ```
 
 
-##Flower Model - year
+##Flower lmer Model 
 Does flower number differ by year (per species)
 ```{r}
 
@@ -591,7 +1029,7 @@ ggplot(all.flowercounts, aes(x = factor(year), y = flower_number, fill = factor(
 all.flower.year.lmer <- lmer(flower_number ~ plant * factor(year) +treatment + (1| calendar_week), data = all.flowercounts)
 summary(all.flower.year.lmer)
 
-anova(all.flower.year.lmer)
+Anova(all.flower.year.lmer)
 
 all.flower.year.model <- all.flowercounts %>% filter(!plant%in% "delphinium") %>%  
   group_by(plant) %>%
@@ -605,6 +1043,33 @@ all.flower.year.model <- all.flowercounts %>% filter(!plant%in% "delphinium") %>
   mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
 View(all.flower.year.model)
 
+
+
+#but this model is looking across the entire year, do I need to downsample bc 2024 had much less data???
+glmm.all.flower.year.model <- all.flowercounts %>%
+  filter(!plant %in% "delphinium") %>%
+  group_by(plant) %>%
+  nest() %>%
+  mutate(
+    model = map(data, ~ {
+      .x <- .x %>% mutate(flower_number = round(flower_number))
+      glmer(flower_number ~ factor(year) + (1 | transectplot),
+            family = poisson,
+            data = .x)
+    }),
+    anova_table = map(model, ~ broom::tidy(.x, effects = "fixed"))
+  ) %>%
+  select(plant, anova_table) %>%
+  unnest(anova_table) %>%
+  mutate(sig = if_else(p.value < 0.05, "*", ""))
+View(glmm.all.flower.year.model)
+
+
+```
+
+## Figure - flower number
+
+```{r}
 #plot flower number year to year
 
 # all.flowercounts %>%
@@ -645,28 +1110,6 @@ all.flowercounts %>%
             vjust = 1.5,
             size = 6) +
   theme_classic()
-
-
-#but this model is looking across the entire year, do I need to downsample bc 2024 had much less data???
-glmm.all.flower.year.model <- all.flowercounts %>%
-  filter(!plant %in% "delphinium") %>%
-  group_by(plant) %>%
-  nest() %>%
-  mutate(
-    model = map(data, ~ {
-      .x <- .x %>% mutate(flower_number = round(flower_number))
-      glmer(flower_number ~ factor(year) + (1 | transectplot),
-            family = poisson,
-            data = .x)
-    }),
-    anova_table = map(model, ~ broom::tidy(.x, effects = "fixed"))
-  ) %>%
-  select(plant, anova_table) %>%
-  unnest(anova_table) %>%
-  mutate(sig = if_else(p.value < 0.05, "*", ""))
-View(glmm.all.flower.year.model)
-
-
 ```
 
 ##Is flower timining different (onset of timing) between years.
@@ -839,7 +1282,8 @@ morph.2025 <- read_sheet("1grngEjxQ6-uulNl_5yYdbmuajY2DXIGkWfHPBVV-3sM", na=c(""
                         is.na(width),
                         length,
                         (length + width) / 2)) %>% 
-                    drop_na(average_flower_size)
+                    drop_na(average_flower_size)  
+        
 
 unique(morph.2025$plant)
 
@@ -853,22 +1297,10 @@ all.years.morph <- bind_rows(morph.2024,morph.2025) %>%
 #if you want to add in inflo height list above ^
 
 
-#plot
-# Year only - flower size
-ggplot(all.years.morph %>% filter(!plant%in% "galium"), aes(x = factor(year), y = average_flower_size)) +
-  #scale_fill_manual(values = year_colors)+
-  geom_boxplot() +
-  facet_wrap(~plant, scales = "free_y") +
-  labs(x = "Year", y = "Avg Flower Size", fill = "Year") +
-  geom_text(data = avgflowersize.sig.species,
-            aes(x = 1.5, y = Inf, label = label),
-            inherit.aes = FALSE,
-            vjust = 1.5,
-            size = 6) +
-  theme_classic()
 
 
 ```
+
 
 ## morph avg size
 
@@ -880,7 +1312,6 @@ avg.flower.size.all.years.model <- all.years.morph %>%
   #galium has a lot of entries where depth, length & width all == NA
   filter(!plant%in% "galium") %>%
   filter(!if_all(c(depth, length, width), is.na)) %>%  
-  #filter(!plant%in% "galium") %>% #galium doesn't have enough data
   group_by(plant) %>%
   nest() %>%
   mutate(
@@ -989,6 +1420,7 @@ all.years.morph %>% filter(!plant%in%"galium") %>%
   ggplot(aes(x = factor(year), y = average_flower_size, color = treatment)) +
   geom_boxplot(fill = NA, linewidth = 0.8,
                position = pd) +
+  scale_color_manual(values = treatment_colors) +
  # geom_jitter(aes(color = treatment),
   #         alpha = 0.4, size = 0.9, position = pd) +
   #scale_color_manual(values = treatment_colors) +
@@ -1018,6 +1450,20 @@ all.years.morph %>% filter(!plant%in%"galium") %>%
     panel.grid.major.y = element_line(color = "grey70", linewidth = 0.3), # horizontal lines
     panel.grid.minor = element_blank())
 
+
+#plot
+# Year only - flower size
+ggplot(all.years.morph %>% filter(!plant%in% "galium"), aes(x = factor(year), y = average_flower_size)) +
+  #scale_fill_manual(values = year_colors)+
+  geom_boxplot() +
+  facet_wrap(~plant, scales = "free_y") +
+  labs(x = "Year", y = "Avg Flower Size", fill = "Year") +
+  geom_text(data = avgflowersize.sig.species.year.diffs,
+            aes(x = 1.5, y = Inf, label = label),
+            inherit.aes = FALSE,
+            vjust = 1.5,
+            size = 6) +
+  theme_classic()
 
 #Full plot
 # ggplot(
@@ -1077,8 +1523,7 @@ depth.all.years.model <- all.years.morph %>%
                               SE = SE,
                               df = df,
                               t.ratio = t.ratio,
-                              p.value = p.value))
-    ) %>%
+                              p.value = p.value))) %>%
   select(plant, anova_table, emmeans_table, contrasts_table)
 
 
@@ -1143,6 +1588,7 @@ all.years.morph %>% filter(!plant%in%"galium") %>%
   ggplot(aes(x = factor(year), y = depth, color = treatment)) +
   geom_boxplot(fill = NA, linewidth = 0.8,
                position = pd) +
+  scale_color_manual(values = treatment_colors) +
  # geom_jitter(aes(color = treatment),
   #         alpha = 0.4, size = 0.9, position = pd) +
   #scale_color_manual(values = treatment_colors) +
@@ -1233,6 +1679,114 @@ n.morph.years <- all.years.morph %>%
 
 ```
 
+#Inflo height
+```{r}
+
+inflo.2024 <- morph.2024 %>% select(date,	scribe,	observer,	transect,	plot,	transectplot,	plant, inflo_height, treatment) %>% 
+                mutate(year = 2024)
+
+inflo.2025 <- read_sheet("1grngEjxQ6-uulNl_5yYdbmuajY2DXIGkWfHPBVV-3sM", na=c("")) %>%  
+            #remove rows with no tag number
+                filter( tag != "") %>% 
+                filter(!plant%in% c("clay","delphinium")) %>%
+                mutate(year = 2025) %>%
+                left_join(rainout.treatments) %>% 
+                select( date,	scribe,	observer,	transect,	plot,	transectplot,	plant,	tag, inflo_final, treatment) %>% 
+                rename(inflo_height =inflo_final) %>% 
+                mutate(year = 2025)
+  
+
+inflo.all <- bind_rows(inflo.2024, inflo.2025) %>% mutate(year = as.factor(year))
+
+ inflo.lmer <- lmer(inflo_height ~ treatment * year + (1|observer)+ (1|transectplot), data = inflo.all)
+summary(inflo.lmer)
+
+
+inflo.model <- inflo.all %>% 
+    group_by(plant) %>%
+    nest() %>%
+    mutate(model = map(data, ~ lmer(inflo_height ~ year*treatment + (1|observer) + (1|transectplot), data = .x)),
+    #ANVOA table for each species:
+    anova_table = map(model, ~ {
+      broom::tidy(car::Anova(.x)) %>%
+        dplyr::rename(F_value = statistic)}),
+    # Estimated marginal means for each species
+    emmeans_table = map(model, 
+            ~ emmeans(.x, ~ year * treatment) %>%
+            as.data.frame()),
+    # Pairwise contrasts of treatment within each year
+    contrasts_table_treatment = map(model, ~ emmeans(.x, pairwise ~ treatment | year)$contrasts %>%
+                            as.data.frame() %>%
+                            rename(
+                              contrast = contrast,
+                              estimate = estimate,
+                              SE = SE,
+                              df = df,
+                              t.ratio = t.ratio,
+                              p.value = p.value)), 
+      # Pairwise contrasts of treatment within each year
+    contrasts_table_year = map(model, ~ emmeans(.x, pairwise ~ year)$contrasts %>%
+                            as.data.frame() %>%
+                            rename(
+                              contrast = contrast,
+                              estimate = estimate,
+                              SE = SE,
+                              df = df,
+                              t.ratio = t.ratio,
+                              p.value = p.value))) %>%
+          select(plant, anova_table, emmeans_table, contrasts_table_treatment,contrasts_table_year)
+
+
+
+  # ANOVA table 
+anova.inflo <- inflo.model %>%
+  select(plant, anova_table) %>%
+  unnest(anova_table) %>% 
+  mutate(adjusted.pvalue= p.adjust(p.value, method="fdr")) %>%
+  mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+View(anova.inflo)
+
+#  emmeans table 
+emmeans.inflo <- inflo.model %>%
+  select(plant, emmeans_table) %>%
+  unnest(emmeans_table)
+View(emmeans.inflo)
+
+#   Pairwise contrasts of treatment within each year 
+contrasts.inflo.treatment <- inflo.model %>%
+  select(plant, contrasts_table_treatment) %>%
+  unnest(contrasts_table_treatment) %>% 
+  mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+View(contrasts.inflo.treatment)
+
+#   Pairwise contrasts of year
+contrasts.inflo.year <- inflo.model %>%
+  select(plant, contrasts_table_year) %>%
+  unnest(contrasts_table_year) %>% 
+  mutate(sig = if_else(p.value < 0.05, "*", ""))  # add * if p < 0.05
+View(contrasts.inflo.year)
+
+
+```
+
+## Plot -inflo
+```{r}
+inflo.all  %>% filter(!plant%in% "galium") %>% 
+  ggplot(aes(x = year, y = inflo_height, color = treatment)) +
+  geom_boxplot(fill = NA, linewidth = 0.8,) +
+  scale_color_manual(values = treatment_colors) +
+  facet_wrap(~plant, scales = "free_y") +
+  labs(
+    x = "Year",
+    y = "Inflo Height (cm)",
+    color = "Treatment"
+  ) +
+  theme_classic() +
+    theme(
+    panel.grid.major.x = element_blank(),        # remove vertical lines
+    panel.grid.major.y = element_line(color = "grey70", linewidth = 0.3), # horizontal lines
+    panel.grid.minor = element_blank())
+```
 
 # Visitation Rate
 TODO: how to deal with different number of weeks observed? 2024 has like 6 weeks, 2025 has 12.... downsample? 
@@ -1490,6 +2044,9 @@ The conditional model asks: given that a plant is being visited, how many visits
 ```{r}
 #library(glmmTMB)
 
+#relevel plant species to name specific reference species for glmm
+all.years.vrate$plant <- relevel(factor(all.years.vrate$plant), ref = "heterotheca")
+
 #glmmTMB with flower number in zi formula
 #Zero-inflated negative binomial mixed model with plant-specific dispersion:
 fit.year.treat.glmm <- glmmTMB(visits ~ plant*year*treatment + flower_number + (1 | transectplot), 
@@ -1713,8 +2270,8 @@ Lepidoptera data are too sparse for a count model. Must convert the response to 
 report result as: The probability of Lepidoptera visitation was modeled using a binomial GLMM due to extremely low visitation frequencies.
 ```{r}
 #data for count model:
-# lep.visits <- all.years.vrate %>%
-#   dplyr::filter(insect_class == "lepidoptera")
+ lep.visits <- all.years.vrate %>%
+   dplyr::filter(insect_class == "lepidoptera")
 
 #data for p/a model: 
 lep.visits <- lep.visits %>%
