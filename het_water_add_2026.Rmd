@@ -1,0 +1,275 @@
+---
+title: "Het_water_addition_2026"
+author: "Janelle Bohey"
+date: "2026-07-28"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+# Packages
+
+```{r}
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(brranching)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+library(broom)
+library(dplyr)
+library(glmmTMB)
+
+
+
+library(bipartite)
+library(vegan)
+library(phytools)
+library(taxize)
+library(rotl)
+library(dendextend)
+library(tidyverse)
+library(heatmaply)
+library(googlesheets4)
+library(tibble)
+library(lme4)
+library(lmerTest)
+library(broom)
+library(tidyverse)
+library(tidyr)
+library(vegan)
+library(dplyr)
+library(broom.mixed)
+library(car)
+library(emmeans)
+library(knitr)
+```
+
+#treatment colors
+```{r}
+hwa_treatment_colors <- c(
+  "Control" = "#1b9e77",
+  "Average" = "#d95f02",
+  "Wet"     = "#7570b3"
+)
+```
+
+#Loading data
+```{r}
+
+
+water.add.plant.tags.treatment <- read_sheet("1l2XqfCi50l88_aZCI1JbWmN22IYGhGF40hMfJHpbzWk", sheet = "water_add_plant_tags")
+
+water.add.morph <- read_sheet("1CXVnbEJUhKjsV01whcGqwEkC0xQ1wse9PEDdnqEftCU") %>% 
+                        left_join(water.add.plant.tags.treatment, by="tag")  %>% 
+                    select(- c("date_tagged", "notes_plant_tags")) %>% 
+                
+                     mutate(average_flower_size = (length + width) / 2) %>% 
+                     mutate(average_disc = (disc_length + disc_width) / 2 ) 
+
+```
+
+
+#Average Flower Size
+```{r}
+
+hwa_avg_flower_size_model <- lmer(average_flower_size ~ treatment + (1|observer) + (1|tag),
+                                   data = water.add.morph)
+
+hwa_avg_flwr_anova_table <- broom::tidy(car::Anova(hwa_avg_flower_size_model)) %>%
+  dplyr::rename(F_value = statistic)
+hwa_avg_flwr_anova_table
+
+hwa_avg_flwr_emmeans_table <- emmeans(hwa_avg_flower_size_model, ~ treatment) %>%
+  as.data.frame()
+hwa_avg_flwr_emmeans_table
+
+hwa_avg_flwr_contrasts_table <- emmeans(hwa_avg_flower_size_model, pairwise ~ treatment)$contrasts %>%
+  as.data.frame()
+hwa_avg_flwr_contrasts_table
+  
+
+
+# Percent change between treatments 
+# pct_change_wet_vs_control    = percent change from control → wet
+# pct_change_average_vs_control = percent change from control → average
+hwa.flower.size.pct.change <- hwa_avg_flwr_emmeans_table %>%
+  select(treatment, emmean) %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = emmean
+  ) %>%
+  mutate(
+    pct_change_wet_vs_control     = 100 * (`Wet` - `Control`) / `Control`,
+    pct_change_average_vs_control = 100 * (`Average` - `Control`) / `Control`
+  ) %>%
+  select(pct_change_wet_vs_control, pct_change_average_vs_control)
+
+View(hwa.flower.size.pct.change)
+
+
+#Plot flower size: 
+# boxplot for average flower size (HWA treatment model)
+
+water.add.morph %>%
+  #reorder treatments in figure: 
+  mutate(treatment = factor(treatment, levels = c("Control", "Average", "Wet"))) %>% 
+  ggplot(aes(x = treatment, y = average_flower_size, color = treatment)) +
+  geom_boxplot(fill = NA, linewidth = 0.8, position = pd) +
+  scale_color_manual(values = hwa_treatment_colors) +
+   geom_jitter(alpha = 0.4, size = 0.9) +
+  labs(
+    x = "Treatment",
+    y = "Average flower size"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none", #removes fig. legend
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey70", linewidth = 0.3),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+#Average Disc Size
+```{r}
+
+#Disc size linear model 
+hwa_avg_disc_model <- lmer(average_disc ~ treatment + (1|observer) + (1|tag),
+                                   data = water.add.morph)
+#ANOVA table
+hwa_avg_disc_anova_table <- broom::tidy(car::Anova(hwa_avg_disc_model)) %>%
+  dplyr::rename(F_value = statistic)
+hwa_avg_disc_anova_table
+
+#EMMEANS table
+hwa_avg_disc_emmeans_table <- emmeans(hwa_avg_disc_model, ~ treatment) %>%
+  as.data.frame()
+hwa_avg_disc_emmeans_table
+
+#Pairwise Contrast table
+hwa_avg_disc_contrasts_table <- emmeans(hwa_avg_disc_model, pairwise ~ treatment)$contrasts %>%
+  as.data.frame()
+hwa_avg_disc_contrasts_table
+  
+
+
+# Percent change between treatments 
+# pct_change_wet_vs_control    = percent change from control → wet
+# pct_change_average_vs_control = percent change from control → average
+hwa.disc.pct.change <- hwa_avg_disc_emmeans_table %>%
+  select(treatment, emmean) %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = emmean
+  ) %>%
+  mutate(
+    pct_change_wet_vs_control     = 100 * (`Wet` - `Control`) / `Control`,
+    pct_change_average_vs_control = 100 * (`Average` - `Control`) / `Control`
+  ) %>%
+  select(pct_change_wet_vs_control, pct_change_average_vs_control)
+
+View(hwa.disc.pct.change)
+
+
+#Plot disc size: 
+# boxplot for average disc size 
+
+water.add.morph %>%
+  #reorder treatments in figure: 
+  mutate(treatment = factor(treatment, levels = c("Control", "Average", "Wet"))) %>% 
+  ggplot(aes(x = treatment, y = average_disc, color = treatment)) +
+  geom_boxplot(fill = NA, linewidth = 0.8, position = pd) +
+  scale_color_manual(values = hwa_treatment_colors) +
+   geom_jitter(alpha = 0.4, size = 0.9) +
+  labs(
+    x = "Treatment",
+    y = "Average disc size"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none", #removes fig. legend
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey70", linewidth = 0.3),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+#Flower depth 
+
+```{r}
+
+#Disc size linear model 
+hwa_flwr_depth_model <- lmer(depth ~ treatment + (1|observer) + (1|tag),
+                                   data = water.add.morph)
+#ANOVA table
+hwa_flwr_depth_anova_table <- broom::tidy(car::Anova(hwa_flwr_depth_model)) %>%
+  dplyr::rename(F_value = statistic)
+hwa_flwr_depth_anova_table
+
+#EMMEANS table
+hwa_flwr_depth_emmeans_table <- emmeans(hwa_flwr_depth_model, ~ treatment) %>%
+  as.data.frame()
+hwa_flwr_depth_emmeans_table
+
+#Pairwise Contrast table
+hwa_flwr_depth_contrasts_table <- emmeans(hwa_flwr_depth_model, pairwise ~ treatment)$contrasts %>%
+  as.data.frame()
+hwa_flwr_depth_contrasts_table
+  
+
+
+# Percent change between treatments 
+# pct_change_wet_vs_control    = percent change from control → wet
+# pct_change_average_vs_control = percent change from control → average
+hwa.flwr.depth.pct.change <- hwa_flwr_depth_emmeans_table %>%
+  select(treatment, emmean) %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = emmean
+  ) %>%
+  mutate(
+    pct_change_wet_vs_control     = 100 * (`Wet` - `Control`) / `Control`,
+    pct_change_average_vs_control = 100 * (`Average` - `Control`) / `Control`
+  ) %>%
+  select(pct_change_wet_vs_control, pct_change_average_vs_control)
+
+View(hwa.flwr.depth.pct.change)
+
+
+#Plot disc size: 
+# boxplot for average disc size 
+
+water.add.morph %>%
+  #reorder treatments in figure: 
+  mutate(treatment = factor(treatment, levels = c("Control", "Average", "Wet"))) %>% 
+  ggplot(aes(x = treatment, y = depth, color = treatment)) +
+  geom_boxplot(fill = NA, linewidth = 0.8, position = pd) +
+  scale_color_manual(values = hwa_treatment_colors) +
+   geom_jitter(alpha = 0.4, size = 0.9) +
+  labs(
+    x = "Treatment",
+    y = "Flower Depth (mm)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none", #removes fig. legend
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey70", linewidth = 0.3),
+    panel.grid.minor = element_blank()
+  )
+
+
+```
+
