@@ -15,43 +15,22 @@ knitr::opts_chunk$set(echo = TRUE)
 # Packages
 
 ```{r}
-library(bipartite)
+
 library(vegan)
-library(phytools)
-library(taxize)
-library(brranching)
-library(rotl)
-library(dendextend)
-library(tidyverse)
-library(heatmaply)
 library(googlesheets4)
 library(broom)
 library(dplyr)
-library(glmmTMB)
-
-
-
-library(bipartite)
-library(vegan)
-library(phytools)
-library(taxize)
-library(rotl)
-library(dendextend)
-library(tidyverse)
-library(heatmaply)
-library(googlesheets4)
 library(tibble)
 library(lme4)
 library(lmerTest)
 library(broom)
 library(tidyverse)
 library(tidyr)
-library(vegan)
-library(dplyr)
 library(broom.mixed)
 library(car)
 library(emmeans)
 library(knitr)
+
 ```
 
 #treatment colors
@@ -75,6 +54,9 @@ water.add.morph <- read_sheet("1CXVnbEJUhKjsV01whcGqwEkC0xQ1wse9PEDdnqEftCU") %>
                 
                      mutate(average_flower_size = (length + width) / 2) %>% 
                      mutate(average_disc = (disc_length + disc_width) / 2 ) 
+
+
+hwa_flower_counts <- read_sheet("1MnbNCUuo_rPnk9K43U9pUCmssc7TYJrPmPmQK_Iqoo4")
 
 ```
 
@@ -145,7 +127,7 @@ water.add.morph %>%
 ```{r}
 
 #Disc size linear model 
-hwa_avg_disc_model <- lmer(average_disc ~ treatment + (1|observer) + (1|tag),
+hwa_avg_disc_model <- lmer(average_disc ~ treatment + (1|observer) + (1|tag) ,
                                    data = water.add.morph)
 #ANOVA table
 hwa_avg_disc_anova_table <- broom::tidy(car::Anova(hwa_avg_disc_model)) %>%
@@ -272,4 +254,179 @@ water.add.morph %>%
 
 
 ```
+
+#Soil Moisture
+```{r}
+#read in data
+hwa_vwc <- read_sheet("12u84Sfyy6l9q1RAqNoodMERxvd-Rw10cSrxgIyKdP6s") %>% 
+                      left_join(water.add.plant.tags.treatment, by="tag")  %>% 
+                    select(- c("date_tagged", "notes_plant_tags"))
+
+
+hwa.vwc.lmer <- lmer(soil_moisture~treatment + (1|date) + (1|tag), data = hwa_vwc)
+Anova(hwa.vwc.lmer) 
+
+#EMMEANS table
+hwa_vwc_emmeans_table <- emmeans(hwa.vwc.lmer, ~ treatment) %>%
+  as.data.frame()
+hwa_vwc_emmeans_table
+
+#Pairwise Contrast table
+hwa_vwc_contrasts_table <- emmeans(hwa.vwc.lmer, pairwise ~ treatment)$contrasts %>%
+  as.data.frame()
+hwa_vwc_contrasts_table
+
+#plot soil moisture
+ggplot(hwa_vwc %>% mutate(date = factor(date)), aes(x = date, y = soil_moisture, color = treatment, group = treatment)) +
+  geom_point(alpha = 0.6) +                            # raw measurements
+  scale_color_manual(values = hwa_treatment_colors) +
+  geom_line(stat = "summary", fun = mean, linewidth = 1) +  # mean line per treatment
+  #facet_wrap(~ year, ncol = 1, scales = "free_x") +   # top: 2024, bottom: 2025
+  labs(x = "Date", y = "Soil volumetric water content (VWC)",
+       color = "Treatment") +
+  #scale_x_date(date_breaks = "1 month", date_labels = "%b")+
+  theme_classic() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "gray80", size = 0.3),
+    axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+#inflorescence height
+
+```{r}
+#Filter inflo height data from morphology dataset 
+hwa_inflo <- water.add.morph %>% select(date, observer, scribe, tag, inflo_height_cm, treatment)
+
+# linear model 
+hwa_inflo_model <- lmer(inflo_height_cm ~ treatment + (1|observer) + (1|tag),
+                                   data = hwa_inflo)
+
+
+#ANOVA table
+hwa_inflo_anova_table <- broom::tidy(car::Anova(hwa_inflo_model)) %>%
+  dplyr::rename(F_value = statistic)
+hwa_inflo_anova_table
+
+#EMMEANS table
+hwa_inflo_emmeans_table <- emmeans(hwa_inflo_model, ~ treatment) %>%
+  as.data.frame()
+hwa_inflo_emmeans_table
+
+#Pairwise Contrast table
+hwa_inflo_contrasts_table <- emmeans(hwa_flwr_depth_model, pairwise ~ treatment)$contrasts %>%
+  as.data.frame()
+hwa_inflo_contrasts_table  
+
+
+# Percent change between treatments 
+# pct_change_wet_vs_control    = percent change from control → wet
+# pct_change_average_vs_control = percent change from control → average
+hwa.inflo.pct.change <- hwa_inflo_emmeans_table %>%
+  select(treatment, emmean) %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = emmean
+  ) %>%
+  mutate(
+    pct_change_wet_vs_control     = 100 * (`Wet` - `Control`) / `Control`,
+    pct_change_average_vs_control = 100 * (`Average` - `Control`) / `Control`
+  ) %>%
+  select(pct_change_wet_vs_control, pct_change_average_vs_control)
+
+View(hwa.inflo.pct.change)
+
+
+#Plot disc size: 
+# boxplot for average disc size 
+
+hwa_inflo %>%
+  #reorder treatments in figure: 
+  mutate(treatment = factor(treatment, levels = c("Control", "Average", "Wet"))) %>% 
+  ggplot(aes(x = treatment, y = inflo_height_cm, color = treatment)) +
+  geom_boxplot(fill = NA, linewidth = 0.8, position = pd) +
+  scale_color_manual(values = hwa_treatment_colors) +
+   geom_jitter(alpha = 0.4, size = 0.9) +
+  labs(
+    x = "Treatment",
+    y = "Inflo height (cm)")+
+  theme_classic() +
+  theme(
+    legend.position = "none", #removes fig. legend
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey70", linewidth = 0.3),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+#flower counts
+```{r}
+
+hwa_flower_counts <- read_sheet("1MnbNCUuo_rPnk9K43U9pUCmssc7TYJrPmPmQK_Iqoo4") %>% 
+              #add treatment to dataframe:
+                left_join(water.add.plant.tags.treatment, by="tag")  %>% 
+                    select(- c("date_tagged", "notes_plant_tags"))
+
+
+#linear model 
+
+hwa_flower_counts_model <- lmer(open_flowers ~ treatment + (1|tag) ,
+                                   data = hwa_flower_counts)
+#ANOVA 
+Anova(hwa_flower_counts_model.lm)
+
+#EMMEANS table
+hwa_flower_counts_emmeans_table <- emmeans(hwa_flower_counts_model, ~ treatment) %>%
+  as.data.frame()
+hwa_flower_counts_emmeans_table
+
+#Pairwise Contrast table
+hwa_flower_counts_contrasts_table <- emmeans(hwa_flower_counts_model, pairwise ~ treatment)$contrasts %>%
+  as.data.frame()
+hwa_flower_counts_contrasts_table  
+
+
+# Percent change between treatments 
+# pct_change_wet_vs_control    = percent change from control → wet
+# pct_change_average_vs_control = percent change from control → average
+hwa.flower.counts.pct.change <- hwa_flower_counts_emmeans_table %>%
+  select(treatment, emmean) %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = emmean
+  ) %>%
+  mutate(
+    pct_change_wet_vs_control     = 100 * (`Wet` - `Control`) / `Control`,
+    pct_change_average_vs_control = 100 * (`Average` - `Control`) / `Control`
+  ) %>%
+  select(pct_change_wet_vs_control, pct_change_average_vs_control)
+
+View(hwa.flower.counts.pct.change)
+
+
+#Plot disc size: 
+# boxplot for average disc size 
+
+hwa_flower_counts %>%
+  #reorder treatments in figure: 
+  mutate(treatment = factor(treatment, levels = c("Control", "Average", "Wet"))) %>% 
+  ggplot(aes(x = treatment, y = open_flowers, color = treatment)) +
+  geom_boxplot(fill = NA, linewidth = 0.8, position = pd) +
+  scale_color_manual(values = hwa_treatment_colors) +
+   geom_jitter(alpha = 0.4, size = 0.9) +
+  labs(
+    x = "Treatment",
+    y = "Flower Number")+
+  theme_classic() +
+  theme(
+    legend.position = "none", #removes fig. legend
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey70", linewidth = 0.3),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
 
