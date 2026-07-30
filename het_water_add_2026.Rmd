@@ -372,7 +372,7 @@ hwa_flower_counts <- read_sheet("1MnbNCUuo_rPnk9K43U9pUCmssc7TYJrPmPmQK_Iqoo4") 
 
 #linear model 
 
-hwa_flower_counts_model <- lmer(open_flowers ~ treatment + (1|tag) ,
+hwa_flower_counts_model <- lmer(open_flowers ~ treatment + (1|date) ,
                                    data = hwa_flower_counts)
 #ANOVA 
 Anova(hwa_flower_counts_model.lm)
